@@ -1,0 +1,66 @@
+name: Cập nhật dữ liệu pipeline chứng khoán
+
+# 2 lịch tách riêng vì B1 quét TOÀN THỊ TRƯỜNG rất lâu (giờ), trong khi
+# B2/B3 + B4 chỉ chạy trên tập đã lọc từ B1 nên nhanh hơn nhiều.
+on:
+  schedule:
+    # B1 (lọc cơ bản) - chạy 1 lần/tuần vào tối Chủ nhật (giờ VN = UTC+7)
+    # Cron dùng giờ UTC: 12:00 UTC Chủ nhật = 19:00 giờ VN
+    - cron: '0 12 * * 0'
+    # B2/B3 + B4 (lọc kỹ thuật + chấm điểm) - chạy các tối thứ 2-6 sau khi
+    # đóng cửa phiên chiều (16:00 giờ VN = 09:00 UTC)
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch: {}   # cho phép bấm nút "Run workflow" chạy tay trên GitHub khi cần
+
+jobs:
+  cap-nhat-du-lieu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300   # chặn job chạy vô hạn nếu vnstock bị treo/rate-limit kẹt
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cài Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cài thư viện
+        run: pip install vnstock pandas numpy
+
+      - name: Xác định B1 có cần chạy không (chỉ vào lịch Chủ nhật)
+        id: check_day
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then
+            echo "chay_b1=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "chay_b1=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Chạy B1 - Lọc cơ bản (chỉ Chủ nhật)
+        if: steps.check_day.outputs.chay_b1 == 'true'
+        env:
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
+        run: python B1-filter_fa_theo_DT_LN_PE_DE.py
+
+      - name: Chạy B2/B3 - Lọc kỹ thuật
+        env:
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
+        run: python B2_B3-trend_health.py
+
+      - name: Chạy B4 - Chấm điểm
+        env:
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
+        run: python B4-ranking_prestige.py
+
+      - name: Commit & push CSV mới (nếu có thay đổi)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Bao_cao_FA_AI.csv Bao_cao_B3.csv Bao_cao_B4_Final.csv trading_parameters.json
+          if git diff --cached --quiet; then
+            echo "Không có gì thay đổi, bỏ qua commit."
+          else
+            git commit -m "🤖 Tự động cập nhật dữ liệu pipeline $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
