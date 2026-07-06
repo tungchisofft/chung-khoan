@@ -1,0 +1,47 @@
+{
+  "active_scenario": "NEUTRAL",
+  "scenarios": {
+    "BULL": {
+      "technical": {
+        "avg_vol_min": 30000,
+        "volatility_max": 6.0,
+        "rsi_period": 14,
+        "adx_period": 14
+      },
+      "portfolio": {
+        "profit_threshold": 0.2,
+        "ts_normal_base": 0.15,
+        "ts_weak_base": 0.1,
+        "ts_cap": 0.2
+      }
+    },
+    "BEAR": {
+      "technical": {
+        "avg_vol_min": 70000,
+        "volatility_max": 3.0,
+        "rsi_period": 14,
+        "adx_period": 14
+      },
+      "portfolio": {
+        "profit_threshold": 0.1,
+        "ts_normal_base": 0.05,
+        "ts_weak_base": 0.03,
+        "ts_cap": 0.08
+      }
+    },
+    "NEUTRAL": {
+      "technical": {
+        "avg_vol_min": 50000,
+        "volatility_max": 4.5,
+        "rsi_period": 14,
+        "adx_period": 14
+      },
+      "portfolio": {
+        "profit_threshold": 0.15,
+        "ts_normal_base": 0.1,
+        "ts_weak_base": 0.07,
+        "ts_cap": 0.15
+      }
+    }
+  }
+}
