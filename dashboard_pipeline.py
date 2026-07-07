@@ -204,14 +204,14 @@ with tab_b1:
     else:
         c1, c2, c3 = st.columns(3)
         c1.metric("Số mã đạt lọc FA", len(df_b1))
-        c2.metric("ROE trung bình", f"{df_b1['ROE Năm (%)'].mean():.1f}%")
-        c3.metric("P/E trung bình", f"{pd.to_numeric(df_b1['P/E'], errors='coerce').mean():.1f}")
+        c2.metric("ROE trung bình", f"{df_b1['ROE Năm (%)'].mean():.2f}%")
+        c3.metric("P/E trung bình", f"{pd.to_numeric(df_b1['P/E'], errors='coerce').mean():.2f}")
 
         d_b1 = chuan_bi_bang(df_b1, che_do_don_gian)
         if che_do_don_gian:
-            st.dataframe(to_mau_bang(d_b1.style, df_b1), use_container_width=True, height=350)
+            st.dataframe(to_mau_bang(d_b1.style, df_b1).format(precision=2), use_container_width=True, height=350)
         else:
-            st.dataframe(d_b1, use_container_width=True, height=350)
+            st.dataframe(d_b1.style.format(precision=2), use_container_width=True, height=350)
 
         fig = px.histogram(df_b1, x="ROE Năm (%)", nbins=20, title="Phân bố ROE các mã đạt lọc")
         st.plotly_chart(fig, use_container_width=True)
@@ -231,9 +231,9 @@ with tab_b3:
             c2.metric("Tỷ lệ vượt so với bước 1", f"{rate:.0f}%")
         d_b3 = chuan_bi_bang(df_b3, che_do_don_gian)
         if che_do_don_gian:
-            st.dataframe(to_mau_bang(d_b3.style, df_b3), use_container_width=True, height=350)
+            st.dataframe(to_mau_bang(d_b3.style, df_b3).format(precision=2), use_container_width=True, height=350)
         else:
-            st.dataframe(d_b3, use_container_width=True, height=350)
+            st.dataframe(d_b3.style.format(precision=2), use_container_width=True, height=350)
         st.caption("Các mã ở đây đều đang có giá nằm trên đường trung bình dài hạn (xu hướng lên), "
                    "thanh khoản đủ tốt và biến động không quá mạnh.")
 
@@ -266,9 +266,9 @@ with tab_b4:
 
         d_b4 = chuan_bi_bang(df_view, che_do_don_gian)
         if che_do_don_gian:
-            st.dataframe(to_mau_bang(d_b4.style, df_view), use_container_width=True, height=300)
+            st.dataframe(to_mau_bang(d_b4.style, df_view).format(precision=2), use_container_width=True, height=300)
         else:
-            st.dataframe(d_b4, use_container_width=True, height=300)
+            st.dataframe(d_b4.style.format(precision=2), use_container_width=True, height=300)
         st.caption("Điểm cao chưa chắc đã được chọn mua — bước 4 còn loại thêm các mã rủi ro "
                    "(nợ bất thường, tăng trưởng ảo...). Xem tab tiếp theo để có danh sách cuối cùng.")
 
@@ -325,7 +325,7 @@ with tab_b5:
             top = df.sort_values("Total_Score", ascending=False).head(5).copy()
             raw_w = top["Total_Score"] / top["Total_Score"].sum()
             capped = raw_w.clip(upper=max_weight)
-            top["Tỷ trọng (%)"] = (capped / capped.sum() * 100).round(1)
+            top["Tỷ trọng (%)"] = (capped / capped.sum() * 100).round(2)
             top["⚠️ Cần kiểm tra"] = top["Tăng trưởng LNST (%)"] > B5_DEFAULTS["growth_flag"]
 
             c1, c2 = st.columns([3, 2])
@@ -334,15 +334,15 @@ with tab_b5:
                 if che_do_don_gian:
                     cols = ["Mã CK", "Total_Score", "Tỷ trọng (%)", "ROE Năm (%)",
                             "Tăng trưởng LNST (%)", "P/E", "RSI", "Giá hiện tại", "⚠️ Cần kiểm tra"]
-                    show = top[[c for c in cols if c in top.columns]].round(1)
+                    show = top[[c for c in cols if c in top.columns]].round(2)
                     show = show.rename(columns={k: v for k, v in TEN_THAN_THIEN.items() if k in show.columns})
-                    st.dataframe(to_mau_bang(show.style, top).format(precision=1),
+                    st.dataframe(to_mau_bang(show.style, top).format(precision=2),
                                  use_container_width=True, hide_index=True)
                 else:
                     cols = ["Mã CK", "Total_Score", "P/E", "D/E", "ROE Năm (%)",
                             "Tăng trưởng LNST (%)", "RSI", "Giá hiện tại", "Tỷ trọng (%)",
                             "⚠️ Cần kiểm tra"]
-                    st.dataframe(top[cols].round(1), use_container_width=True, hide_index=True)
+                    st.dataframe(top[cols].round(2), use_container_width=True, hide_index=True)
                 if che_do_don_gian:
                     st.caption("**Nên mua bao nhiêu (%)** = gợi ý tỷ trọng vốn cho mỗi mã. "
                                "🟢 xanh = tín hiệu tốt, 🔴 đỏ = đang nóng nên thận trọng, "

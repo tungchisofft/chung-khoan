@@ -6,7 +6,7 @@ on:
   schedule:
     # B1 (lọc cơ bản) - chạy 1 lần/tuần vào tối Chủ nhật (giờ VN = UTC+7)
     # Cron dùng giờ UTC: 12:00 UTC Chủ nhật = 19:00 giờ VN
-    - cron: '0 12 * * 0'
+    - cron: '0 7 * * 0'
     # B2/B3 + B4 (lọc kỹ thuật + chấm điểm) - chạy các tối thứ 2-6 sau khi
     # đóng cửa phiên chiều (16:00 giờ VN = 09:00 UTC)
     - cron: '0 9 * * 1-5'
