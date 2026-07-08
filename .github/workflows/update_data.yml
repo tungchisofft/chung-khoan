@@ -4,8 +4,8 @@ name: Cập nhật dữ liệu pipeline chứng khoán
 # B2/B3 + B4 chỉ chạy trên tập đã lọc từ B1 nên nhanh hơn nhiều.
 on:
   schedule:
-    # B1 (lọc cơ bản) - chạy 1 lần/tuần vào tối Chủ nhật (giờ VN = UTC+7)
-    # Cron dùng giờ UTC: 12:00 UTC Chủ nhật = 19:00 giờ VN
+    # B1 (lọc cơ bản) - chạy 1 lần/tuần vào chiều Chủ nhật (giờ VN = UTC+7)
+    # Cron dùng giờ UTC: 07:00 UTC Chủ nhật = 14:00 giờ VN
     - cron: '0 7 * * 0'
     # B2/B3 + B4 (lọc kỹ thuật + chấm điểm) - chạy các tối thứ 2-6 sau khi
     # đóng cửa phiên chiều (16:00 giờ VN = 09:00 UTC)
@@ -15,6 +15,12 @@ on:
 jobs:
   cap-nhat-du-lieu:
     runs-on: ubuntu-latest
+    # Khai báo tường minh quyền ghi cho GITHUB_TOKEN - cần thiết vì GitHub mặc định
+    # cấp quyền chỉ-đọc (read-only) cho token của Actions ở repo mới tạo. Nếu chỉ
+    # dựa vào Settings > Actions > General > Workflow permissions, cấu hình có thể
+    # bị reset hoặc không rõ ràng khi repo được fork/chuyển quyền sau này.
+    permissions:
+      contents: write
     timeout-minutes: 300   # chặn job chạy vô hạn nếu vnstock bị treo/rate-limit kẹt
     steps:
       - name: Checkout code
@@ -26,7 +32,7 @@ jobs:
           python-version: '3.11'
 
       - name: Cài thư viện
-        run: pip install vnstock pandas numpy
+        run: pip install vnstock pandas numpy yfinance
 
       - name: Xác định B1 có cần chạy không (chỉ vào lịch Chủ nhật)
         id: check_day
@@ -53,11 +59,30 @@ jobs:
           VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
         run: python B4-ranking_prestige.py
 
+      - name: Chạy B5 - Xuất danh mục đề xuất
+        env:
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
+        run: python B5-portfolio_execution.py | tee B5_ket_qua_moi_nhat.txt
+
+      - name: Chạy B6 - Thu thập giá vàng (lỗi không làm sập job)
+        continue-on-error: true
+        env:
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
+        run: python B6-gold_tracker.py
+
+      - name: Ghi mốc thời gian vào file trigger (.py) - giúp Streamlit Cloud tải lại đáng tin cậy hơn
+        run: |
+          echo '"""File này được GitHub Actions TỰ ĐỘNG ghi đè sau mỗi lần cập nhật dữ liệu."""' > _last_update_marker.py
+          echo "LAST_UPDATE_UTC = \"$(date -u +'%Y-%m-%d %H:%M UTC')\"" >> _last_update_marker.py
+
       - name: Commit & push CSV mới (nếu có thay đổi)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Bao_cao_FA_AI.csv Bao_cao_B3.csv Bao_cao_B4_Final.csv trading_parameters.json
+          # Chỉ add file thực sự tồn tại - tránh fail khi B6 lỗi chưa tạo được file vàng
+          for f in Bao_cao_FA_AI.csv Bao_cao_B3.csv Bao_cao_B4_Final.csv trading_parameters.json B5_ket_qua_moi_nhat.txt _last_update_marker.py Bao_cao_vang.csv lich_su_vang.csv; do
+            [ -f "$f" ] && git add "$f"
+          done
           if git diff --cached --quiet; then
             echo "Không có gì thay đổi, bỏ qua commit."
           else

@@ -1,14 +1,10 @@
-"""
-Dashboard tổng hợp toàn pipeline sàng lọc cổ phiếu B1 → B2/B3 → B4 → B5.
+"""Dashboard 2 tab: (1) Chứng khoán - gom toàn bộ pipeline B1→B5 vào MỘT trang
+dễ hiểu cho người mới; (2) Vàng - theo dõi giá thế giới/trong nước + nhận định.
 
-Đọc các file CSV trung gian do từng bước sinh ra:
-- B1:    Bao_cao_FA_AI.csv     (lọc cơ bản FA toàn thị trường)
-- B2/B3: Bao_cao_B3.csv        (lọc kỹ thuật trend/thanh khoản/biến động)
-- B4:    Bao_cao_B4_Final.csv  (chấm điểm TA tổng hợp)
-- B5:    tính trực tiếp trong dashboard (bộ lọc rủi ro + phân bổ tỷ trọng)
-
-Chạy: streamlit run dashboard_pipeline.py
-Thiếu file nào, tab tương ứng sẽ báo rõ — không làm sập toàn dashboard.
+Tự làm mới dữ liệu: nội dung chính đặt trong st.fragment(run_every=600) - cứ 10
+phút tự đọc lại file (kết hợp cache theo mtime), người xem KHÔNG cần F5 khi CSV
+trong container đã đổi. Việc container nhận commit mới từ GitHub vẫn dựa vào cơ
+chế file trigger _last_update_marker.py (đã thiết lập trong Actions).
 """
 import os
 import streamlit as st
@@ -16,350 +12,283 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Pipeline Sàng Lọc Cổ Phiếu B1→B5", layout="wide")
+try:
+    from _last_update_marker import LAST_UPDATE_UTC
+except ImportError:
+    LAST_UPDATE_UTC = "(chưa có dữ liệu từ Actions)"
 
-FILES = {
-    "B1": "Bao_cao_FA_AI.csv",
-    "B3": "Bao_cao_B3.csv",
-    "B4": "Bao_cao_B4_Final.csv",
-}
+st.set_page_config(page_title="Chứng khoán & Vàng", layout="wide")
 
-# Ngưỡng mặc định của B5 (đồng bộ với B5-portfolio_execution.py)
-B5_DEFAULTS = dict(de_max=0.5, pe_max=15, roe_min=15, growth_min=20,
-                   price_min=10000, rsi_max=65, growth_flag=100, max_weight=0.45)
+FILES = {"B1": "Bao_cao_FA_AI.csv", "B3": "Bao_cao_B3.csv", "B4": "Bao_cao_B4_Final.csv"}
+GOLD_SNAP = "Bao_cao_vang.csv"
+GOLD_HIST = "lich_su_vang.csv"
+
+B5 = dict(de_max=0.5, pe_max=15, roe_min=15, growth_min=20,
+          price_min=10000, rsi_max=65, growth_flag=100, max_weight=0.45)
+
+TEN = {"Mã CK": "Mã CP", "ROE Năm (%)": "Sinh lời vốn (ROE %)",
+       "Tăng trưởng LNST (%)": "Tăng trưởng lợi nhuận (%)", "P/E": "Độ đắt/rẻ (P/E)",
+       "RSI": "Nóng/nguội (RSI)", "Giá hiện tại": "Giá hiện tại (đ)",
+       "Chiết khấu từ đỉnh (%)": "Giảm so với đỉnh (%)", "Total_Score": "Điểm tổng",
+       "Tỷ trọng (%)": "Nên mua bao nhiêu (%)"}
 
 
 def load_csv(path):
-    """Đọc CSV có cache, nhưng khóa cache gồm cả mtime file - nếu nội dung file
-    đổi (do GitHub Actions commit CSV mới), cache tự vô hiệu mà KHÔNG cần
-    reboot app theo cách thủ công, miễn là container đã pull code/data mới."""
     if not os.path.exists(path):
         return None
-    return _load_csv_cached(path, os.path.getmtime(path))
+    return _cached(path, os.path.getmtime(path))
 
 
 @st.cache_data
-def _load_csv_cached(path, _mtime):
+def _cached(path, _mtime):
     return pd.read_csv(path)
 
 
-def file_mtime(path):
+def mtime_str(path):
     if not os.path.exists(path):
         return "—"
     from datetime import datetime
     return datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d/%m/%Y %H:%M")
 
 
-df_b1 = load_csv(FILES["B1"])
-df_b3 = load_csv(FILES["B3"])
-df_b4 = load_csv(FILES["B4"])
+def bang_cao(df, tran=350):
+    return min(max(len(df), 1) * 35 + 38, tran)
 
-st.title("🔬 Dashboard Pipeline Sàng Lọc Cổ Phiếu B1 → B5")
+
+def mau_rsi(v):
+    try:
+        v = float(v)
+    except (ValueError, TypeError):
+        return ""
+    if v > 70: return "background-color: #ffd6d6"
+    if v < 35: return "background-color: #fff3cd"
+    return "background-color: #d6f5d6"
+
 
 # ============================================================
-# HELPER: CHẾ ĐỘ HIỂN THỊ CHO NGƯỜI KHÔNG CHUYÊN
+# TAB 1 — CHỨNG KHOÁN (một trang duy nhất, cho người mới)
 # ============================================================
-# Bật/tắt ở sidebar: khi bật (mặc định), dashboard chỉ hiện cột cốt lõi,
-# đổi tên cột sang ngôn ngữ dễ hiểu và tô màu trực quan.
-che_do_don_gian = st.sidebar.toggle(
-    "👶 Chế độ dễ hiểu (cho người không chuyên)", value=True,
-    help="Bật: ẩn bớt chỉ số kỹ thuật, đổi tên cột dễ hiểu, tô màu trực quan. "
-         "Tắt: hiện đầy đủ mọi chỉ số cho người chuyên.")
+def tab_chung_khoan():
+    df_b1, df_b3, df_b4 = (load_csv(FILES[k]) for k in ("B1", "B3", "B4"))
 
-# Tên cột kỹ thuật -> tên thân thiện (kèm gợi ý ngắn ngay trong tên)
-TEN_THAN_THIEN = {
-    "Mã CK": "Mã CP",
-    "ROE Năm (%)": "Sinh lời vốn (ROE %)",
-    "Tăng trưởng LNST (%)": "Tăng trưởng lợi nhuận (%)",
-    "P/E": "Độ đắt/rẻ (P/E)",
-    "D/E": "Mức vay nợ (D/E)",
-    "RSI": "Nóng/nguội (RSI)",
-    "Giá hiện tại": "Giá hiện tại (đ)",
-    "Chiết khấu từ đỉnh (%)": "Giảm so với đỉnh (%)",
-    "Điểm sức mạnh": "Điểm tổng",
-    "Total_Score": "Điểm tổng",
-    "Tỷ trọng (%)": "Nên mua bao nhiêu (%)",
-    "Tỷ_trọng_đề_xuất_%": "Nên mua bao nhiêu (%)",
-    "Xu hướng DI": "Xu hướng",
-}
+    st.info("**Trang này làm gì?** Hệ thống tự quét toàn bộ cổ phiếu trên sàn mỗi ngày, "
+            "lọc qua 4 vòng như một cái phễu (doanh nghiệp tốt → xu hướng giá lên → chấm điểm "
+            "→ loại rủi ro) và cho ra **danh sách gợi ý nên cân nhắc mua** kèm tỷ trọng vốn. "
+            "🟢 xanh = tín hiệu tốt • 🟡 vàng = lưu ý • 🔴 đỏ = thận trọng.")
 
-# Cột chỉ giữ khi ở chế độ chuyên (ẩn trong chế độ dễ hiểu)
-COT_KY_THUAT = ["ADX", "D/E", "Xu hướng DI", "Giá_rescale_x1000", "ATR", "+DI", "-DI",
-                "Quality_Score", "Value_Score", "Technical_Score", "RSI_Distance",
-                "Tăng_trưởng_YoY_thật", "ROE_TTM_thật", "Cảnh_báo_growth_QoQ",
-                "Cảnh_báo_ROE_x4", "Cảnh_báo_thanh_khoản(proxy)"]
-
-# Cột cốt lõi (thứ tự ưu tiên) khi ở chế độ dễ hiểu
-COT_COT_LOI = ["Mã CK", "Total_Score", "Điểm sức mạnh", "Tỷ trọng (%)", "Tỷ_trọng_đề_xuất_%",
-               "ROE Năm (%)", "Tăng trưởng LNST (%)", "P/E", "RSI",
-               "Giá hiện tại", "Chiết khấu từ đỉnh (%)"]
-
-
-def chuan_bi_bang(df, don_gian):
-    """Trả về (dataframe hiển thị, styler). Ẩn cột kỹ thuật + đổi tên nếu chế độ dễ hiểu."""
-    d = df.copy()
-    # Luôn bỏ cột YoY kỹ thuật khỏi hiển thị (theo yêu cầu người dùng)
-    for bo in ["Tăng_trưởng_YoY_thật", "ROE_TTM_thật"]:
-        if bo in d.columns:
-            d = d.drop(columns=bo)
-
-    if don_gian:
-        giu = [c for c in COT_COT_LOI if c in d.columns]
-        # thêm các cột còn lại không thuộc nhóm kỹ thuật (để không mất dữ liệu quan trọng)
-        giu += [c for c in d.columns if c not in giu and c not in COT_KY_THUAT]
-        d = d[[c for c in giu if c in d.columns]]
-        d = d.rename(columns={k: v for k, v in TEN_THAN_THIEN.items() if k in d.columns})
-
-    return d
-
-
-def to_mau_bang(styler, df_goc):
-    """Tô màu trực quan: xanh = tốt, đỏ = cần chú ý. Dựa trên cột gốc trước khi đổi tên."""
-    def mau_rsi(v):
-        try:
-            v = float(v)
-        except (ValueError, TypeError):
-            return ""
-        if v > 70:
-            return "background-color: #ffd6d6"   # quá nóng (quá mua) - đỏ nhạt
-        if v < 35:
-            return "background-color: #fff3cd"   # nguội - vàng nhạt
-        return "background-color: #d6f5d6"       # vùng đẹp - xanh nhạt
-
-    def mau_giam_dinh(v):
-        try:
-            v = float(v)
-        except (ValueError, TypeError):
-            return ""
-        return "background-color: #d6f5d6" if v >= 10 else ""  # giảm sâu so đỉnh = cơ hội
-
-    for ten in ["Nóng/nguội (RSI)", "RSI"]:
-        if ten in styler.columns:
-            styler = styler.map(mau_rsi, subset=[ten])
-    for ten in ["Giảm so với đỉnh (%)", "Chiết khấu từ đỉnh (%)"]:
-        if ten in styler.columns:
-            styler = styler.map(mau_giam_dinh, subset=[ten])
-    return styler
-
-
-tab_overview, tab_b1, tab_b3, tab_b4, tab_b5 = st.tabs(
-    ["📈 Tổng quan", "1️⃣ Lọc doanh nghiệp tốt", "2️⃣ Lọc xu hướng giá",
-     "3️⃣ Chấm điểm & xếp hạng", "4️⃣ Gợi ý danh mục mua"])
-
-# ============================================================
-# TAB TỔNG QUAN: PHỄU LỌC (FUNNEL)
-# ============================================================
-with tab_overview:
-    if che_do_don_gian:
-        st.info("**Cách đọc dashboard này:** Pipeline lọc cổ phiếu qua 4 bước như một cái phễu — "
-                "từ hàng nghìn mã trên sàn, lọc dần còn vài mã tốt nhất để cân nhắc mua.\n\n"
-                "• **Bước 1** — Giữ lại doanh nghiệp làm ăn tốt (lãi cao, ít nợ, giá hợp lý)\n"
-                "• **Bước 2** — Giữ mã đang trong xu hướng giá lên, thanh khoản tốt\n"
-                "• **Bước 3** — Chấm điểm & xếp hạng các mã còn lại\n"
-                "• **Bước 4** — Gợi ý danh mục nên mua + tỷ trọng từng mã\n\n"
-                "🟢 Ô xanh = tín hiệu tốt  •  🟡 Ô vàng = bình thường/lưu ý  •  🔴 Ô đỏ = cần thận trọng")
-
-    st.subheader("Phễu sàng lọc qua từng bước")
-
-    counts, labels = [], []
-    if df_b1 is not None:
-        counts.append(len(df_b1)); labels.append(f"B1 - Đạt lọc FA ({len(df_b1)})")
-    if df_b3 is not None:
-        counts.append(len(df_b3)); labels.append(f"B2/B3 - Đạt lọc TA ({len(df_b3)})")
-    if df_b4 is not None:
-        counts.append(len(df_b4)); labels.append(f"B4 - Được chấm điểm ({len(df_b4)})")
-
-    if counts:
-        fig = go.Figure(go.Funnel(y=labels, x=counts, textinfo="value+percent initial"))
-        fig.update_layout(height=350, margin=dict(t=10, b=10))
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Chưa có file CSV nào. Hãy chạy pipeline B1 → B4 trước, sau đó đặt các file "
-                   "CSV cùng thư mục với dashboard này.")
-
-    st.subheader("Trạng thái dữ liệu")
-    status_rows = []
-    for step, fname in FILES.items():
-        df = {"B1": df_b1, "B3": df_b3, "B4": df_b4}[step]
-        status_rows.append({
-            "Bước": step,
-            "File": fname,
-            "Trạng thái": "✅ Có" if df is not None else "❌ Thiếu",
-            "Số mã": len(df) if df is not None else "—",
-            "Cập nhật lần cuối": file_mtime(fname),
-        })
-    st.dataframe(pd.DataFrame(status_rows), use_container_width=True, hide_index=True)
-    st.caption("🤖 Dữ liệu được tự động cập nhật qua GitHub Actions theo lịch (B2/B3 + B4 các tối "
-               "thứ 2–6, B1 tối Chủ nhật) — không cần chạy tay hay upload CSV thủ công. "
-               "Cột 'Cập nhật lần cuối' cho biết lần Actions chạy gần nhất; nếu cũ hơn phiên giao "
-               "dịch gần nhất, kiểm tra tab Actions trên GitHub xem job có lỗi không.")
-
-# ============================================================
-# TAB B1: LỌC FA
-# ============================================================
-with tab_b1:
-    st.subheader("Bước 1 — Lọc ra doanh nghiệp làm ăn tốt")
-    if df_b1 is None:
-        st.info(f"Chưa có file '{FILES['B1']}'. Chạy B1-filter_fa để tạo.")
-    else:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Số mã đạt lọc FA", len(df_b1))
-        c2.metric("ROE trung bình", f"{df_b1['ROE Năm (%)'].mean():.2f}%")
-        c3.metric("P/E trung bình", f"{pd.to_numeric(df_b1['P/E'], errors='coerce').mean():.2f}")
-
-        d_b1 = chuan_bi_bang(df_b1, che_do_don_gian)
-        if che_do_don_gian:
-            st.dataframe(to_mau_bang(d_b1.style, df_b1).format(precision=2), use_container_width=True, height=350)
-        else:
-            st.dataframe(d_b1.style.format(precision=2), use_container_width=True, height=350)
-
-        fig = px.histogram(df_b1, x="ROE Năm (%)", nbins=20, title="Phân bố ROE các mã đạt lọc")
-        st.plotly_chart(fig, use_container_width=True)
-
-# ============================================================
-# TAB B2/B3: LỌC KỸ THUẬT
-# ============================================================
-with tab_b3:
-    st.subheader("Bước 2 — Lọc mã đang trong xu hướng giá lên")
-    if df_b3 is None:
-        st.info(f"Chưa có file '{FILES['B3']}'. Chạy B2_B3-trend_health để tạo.")
-    else:
-        c1, c2 = st.columns(2)
-        c1.metric("Số mã vượt lọc", len(df_b3))
-        if df_b1 is not None and len(df_b1) > 0:
-            rate = len(df_b3) / len(df_b1) * 100
-            c2.metric("Tỷ lệ vượt so với bước 1", f"{rate:.0f}%")
-        d_b3 = chuan_bi_bang(df_b3, che_do_don_gian)
-        if che_do_don_gian:
-            st.dataframe(to_mau_bang(d_b3.style, df_b3).format(precision=2), use_container_width=True, height=350)
-        else:
-            st.dataframe(d_b3.style.format(precision=2), use_container_width=True, height=350)
-        st.caption("Các mã ở đây đều đang có giá nằm trên đường trung bình dài hạn (xu hướng lên), "
-                   "thanh khoản đủ tốt và biến động không quá mạnh.")
-
-# ============================================================
-# TAB B4: CHẤM ĐIỂM TA
-# ============================================================
-with tab_b4:
-    st.subheader("Bước 3 — Chấm điểm & xếp hạng các mã còn lại")
+    c1, c2 = st.columns([1, 2])
+    c1.metric("🕐 Dữ liệu cập nhật lúc (UTC)", LAST_UPDATE_UTC,
+              help="Do hệ thống tự động ghi mỗi lần chạy xong. Nếu số này quá cũ so với "
+                   "phiên giao dịch gần nhất, dữ liệu bên dưới chưa phải mới nhất.")
     if df_b4 is None:
-        st.info(f"Chưa có file '{FILES['B4']}'. Chạy B4-ranking_prestige để tạo.")
-    else:
-        sort_col = "Điểm sức mạnh" if "Điểm sức mạnh" in df_b4.columns else df_b4.columns[-1]
-        df_view = df_b4.sort_values(by=sort_col, ascending=False)
+        st.warning("Chưa có dữ liệu (thiếu Bao_cao_B4_Final.csv). Hệ thống tự động sẽ tạo file "
+                   "này sau lần chạy đầu tiên.")
+        return
 
-        c1, c2 = st.columns(2)
-        with c1:
-            fig = px.bar(df_view.head(15), x=sort_col, y="Mã CK", orientation="h",
-                         color="Chiết khấu từ đỉnh (%)" if "Chiết khấu từ đỉnh (%)" in df_view.columns else None,
-                         color_continuous_scale="Blues", title="Top 15 mã điểm cao nhất")
-            fig.update_layout(yaxis={"categoryorder": "total ascending"})
+    # ---- KẾT QUẢ CHÍNH: danh mục gợi ý (logic B5) ----
+    st.subheader("🏆 Danh sách gợi ý hôm nay")
+    df = df_b4.copy()
+    exclusions = {}
+
+    def exclude(mask, reason):
+        nonlocal df
+        removed = df[mask]["Mã CK"].tolist()
+        if removed:
+            exclusions[reason] = removed
+        df = df[~mask]
+
+    exclude(df["D/E"].isna(), "Không có số liệu nợ (thường là ngân hàng — cần cách đánh giá riêng)")
+    exclude(df["D/E"] < 0, "Nợ âm bất thường (có thể lỗi dữ liệu — cần kiểm tra lại)")
+    exclude(df["D/E"] > B5["de_max"], f"Vay nợ quá cao (D/E > {B5['de_max']})")
+    exclude((df["P/E"] <= 0) | (df["P/E"] > B5["pe_max"]), f"Giá quá đắt (P/E ngoài 0–{B5['pe_max']})")
+    exclude(df["ROE Năm (%)"] < B5["roe_min"], f"Sinh lời vốn thấp (ROE < {B5['roe_min']}%)")
+    exclude(df["Tăng trưởng LNST (%)"] < B5["growth_min"], f"Tăng trưởng thấp (< {B5['growth_min']}%)")
+    exclude(df["Giá hiện tại"] < B5["price_min"], f"Giá quá thấp (< {B5['price_min']:,}đ)")
+    exclude(df["RSI"] > B5["rsi_max"], f"Giá đang quá nóng (RSI > {B5['rsi_max']})")
+
+    if df.empty:
+        st.warning("Hôm nay KHÔNG có mã nào đạt chuẩn — hệ thống khuyên giữ tiền mặt, chờ cơ hội tốt hơn.")
+    else:
+        df["Quality"] = df["ROE Năm (%)"].rank(pct=True) * 100
+        df["Value"] = df["P/E"].rank(pct=True, ascending=False) * 100
+        rsi_c = abs(df["RSI"] - 40).rank(pct=True, ascending=False) * 100
+        if "Chiết khấu từ đỉnh (%)" in df.columns:
+            df["Tech"] = rsi_c * 0.5 + df["Chiết khấu từ đỉnh (%)"].rank(pct=True) * 100 * 0.5
+        else:
+            df["Tech"] = rsi_c
+        df["Total_Score"] = df["Value"] * 0.4 + df["Quality"] * 0.4 + df["Tech"] * 0.2
+
+        top = df.sort_values("Total_Score", ascending=False).head(5).copy()
+        w = (top["Total_Score"] / top["Total_Score"].sum()).clip(upper=B5["max_weight"])
+        top["Tỷ trọng (%)"] = (w / w.sum() * 100).round(2)
+        top["⚠️ Cần kiểm tra"] = top["Tăng trưởng LNST (%)"] > B5["growth_flag"]
+
+        cA, cB = st.columns([3, 2])
+        with cA:
+            cols = ["Mã CK", "Total_Score", "Tỷ trọng (%)", "ROE Năm (%)",
+                    "Tăng trưởng LNST (%)", "P/E", "RSI", "Giá hiện tại", "⚠️ Cần kiểm tra"]
+            show = top[[c for c in cols if c in top.columns]].rename(columns=TEN)
+            styled = show.style.format(precision=2)
+            ten_rsi = TEN["RSI"]
+            if ten_rsi in show.columns:
+                styled = styled.map(mau_rsi, subset=[ten_rsi])
+            st.dataframe(styled, use_container_width=True, hide_index=True,
+                         height=bang_cao(show))
+            st.caption("**Nên mua bao nhiêu (%)** = gợi ý chia vốn. ⚠️ = tăng trưởng cao bất thường, "
+                       "nên tự kiểm tra lại báo cáo tài chính trước khi tin con số.")
+        with cB:
+            fig = px.pie(top, values="Tỷ trọng (%)", names="Mã CK", hole=0.45,
+                         title="Nên chia vốn thế nào")
             st.plotly_chart(fig, use_container_width=True)
-        with c2:
-            fig2 = px.scatter(df_view, x="RSI", y="Chiết khấu từ đỉnh (%)",
-                              size=df_view["ADX"].clip(lower=1), hover_name="Mã CK",
-                              color=sort_col, color_continuous_scale="Viridis",
-                              title="Bản đồ: mức nóng/nguội vs mức giảm so đỉnh")
-            fig2.add_vline(x=65, line_dash="dash", line_color="red",
-                           annotation_text="Ngưỡng quá nóng")
-            st.plotly_chart(fig2, use_container_width=True)
 
-        d_b4 = chuan_bi_bang(df_view, che_do_don_gian)
-        if che_do_don_gian:
-            st.dataframe(to_mau_bang(d_b4.style, df_view).format(precision=2), use_container_width=True, height=300)
+    # ---- PHỄU LỌC + CHI TIẾT (thu gọn trong expander) ----
+    with st.expander("🔍 Xem hệ thống đã lọc thế nào (phễu 4 vòng)"):
+        counts, labels = [], []
+        if df_b1 is not None: counts.append(len(df_b1)); labels.append(f"Vòng 1 - DN tốt ({len(df_b1)})")
+        if df_b3 is not None: counts.append(len(df_b3)); labels.append(f"Vòng 2 - Xu hướng lên ({len(df_b3)})")
+        if df_b4 is not None: counts.append(len(df_b4)); labels.append(f"Vòng 3 - Được chấm điểm ({len(df_b4)})")
+        if not df.empty: counts.append(len(top)); labels.append(f"Vòng 4 - Gợi ý cuối ({len(top)})")
+        if counts:
+            fig = go.Figure(go.Funnel(y=labels, x=counts, textinfo="value"))
+            fig.update_layout(height=300, margin=dict(t=10, b=10))
+            st.plotly_chart(fig, use_container_width=True)
+
+        status = [{"File": f, "Trạng thái": "✅" if os.path.exists(f) else "❌",
+                   "Cập nhật": mtime_str(f)} for f in FILES.values()]
+        st.dataframe(pd.DataFrame(status), use_container_width=True, hide_index=True)
+
+    with st.expander("📋 Vì sao các mã khác bị loại"):
+        if exclusions:
+            for reason, codes in exclusions.items():
+                st.markdown(f"- **{reason}**: {', '.join(codes)}")
         else:
-            st.dataframe(d_b4.style.format(precision=2), use_container_width=True, height=300)
-        st.caption("Điểm cao chưa chắc đã được chọn mua — bước 4 còn loại thêm các mã rủi ro "
-                   "(nợ bất thường, tăng trưởng ảo...). Xem tab tiếp theo để có danh sách cuối cùng.")
+            st.write("Không mã nào bị loại.")
+
+    with st.expander("📑 Bảng chi tiết từng vòng (cho người muốn xem sâu)"):
+        for label, d in [("Vòng 1 - Doanh nghiệp tốt", df_b1),
+                         ("Vòng 2 - Xu hướng giá lên", df_b3),
+                         ("Vòng 3 - Chấm điểm", df_b4)]:
+            if d is not None:
+                st.markdown(f"**{label}** ({len(d)} mã)")
+                dd = d.drop(columns=[c for c in ("Tăng_trưởng_YoY_thật", "ROE_TTM_thật") if c in d.columns])
+                dd = dd.rename(columns=TEN)
+                st.dataframe(dd.style.format(precision=2), use_container_width=True,
+                             height=bang_cao(dd, 300))
+
 
 # ============================================================
-# TAB B5: BỘ LỌC RỦI RO + DANH MỤC (tính trực tiếp)
+# TAB 2 — VÀNG
 # ============================================================
-with tab_b5:
-    st.subheader("Bước 4 — Gợi ý danh mục nên mua & tỷ trọng")
-    if df_b4 is None:
-        st.info("Cần dữ liệu bước 3 để tạo gợi ý danh mục.")
+def nhan_dinh_vang(snap, hist):
+    """Nhận định TỰ ĐỘNG theo quy tắc minh bạch (rule-based), không phải lời
+    khuyên tài chính. Mỗi quy tắc in rõ căn cứ số liệu để người xem tự thẩm định."""
+    ket_luan, can_cu = [], []
+    prem_sjc = snap.get("premium_sjc_pct")
+    prem_nhan = snap.get("premium_nhan_pct")
+    world = snap.get("gia_the_gioi_usd_oz")
+
+    # Quy tắc 1: chênh lệch (premium) so với giá thế giới quy đổi
+    if pd.notna(prem_sjc):
+        if prem_sjc > 12:
+            ket_luan.append("🔴 HẠN CHẾ mua vàng miếng SJC lúc này")
+            can_cu.append(f"Giá miếng SJC cao hơn thế giới quy đổi **{prem_sjc:.1f}%** — nếu chênh lệch "
+                          "co lại (chính sách tăng cung), giá miếng có thể giảm nhanh hơn giá thế giới.")
+        else:
+            can_cu.append(f"Chênh lệch SJC/thế giới ở mức {prem_sjc:.1f}% — không quá căng.")
+    if pd.notna(prem_nhan):
+        if prem_nhan < 8:
+            ket_luan.append("🟢 Nhẫn trơn 9999 là lựa chọn hợp lý hơn miếng để TÍCH LŨY")
+            can_cu.append(f"Nhẫn chỉ cao hơn thế giới {prem_nhan:.1f}% — rủi ro co chênh lệch thấp hơn miếng.")
+        elif pd.notna(prem_sjc) and prem_nhan < prem_sjc:
+            ket_luan.append("🟡 Nếu vẫn muốn tích lũy, ưu tiên NHẪN hơn MIẾNG")
+            can_cu.append(f"Premium nhẫn ({prem_nhan:.1f}%) thấp hơn miếng ({prem_sjc:.1f}%).")
+
+    # Quy tắc 2: xu hướng giá thế giới theo lịch sử đã lưu
+    if hist is not None and len(hist) >= 10 and pd.notna(world):
+        h = hist.dropna(subset=["gia_the_gioi_usd_oz"])
+        if len(h) >= 10:
+            ma10 = h["gia_the_gioi_usd_oz"].tail(10).mean()
+            if world < ma10 * 0.98:
+                ket_luan.append("🟡 Xu hướng thế giới đang YẾU — nếu mua, chia nhỏ nhiều đợt (DCA), không dồn 1 lần")
+                can_cu.append(f"Giá hiện tại {world:,.0f} USD thấp hơn ~2% so trung bình 10 phiên ({ma10:,.0f} USD).")
+            elif world > ma10 * 1.02:
+                can_cu.append(f"Giá thế giới đang cao hơn trung bình 10 phiên ({ma10:,.0f} USD) — tránh mua đuổi.")
     else:
-        st.sidebar.header("⚙️ Ngưỡng lọc (chỉnh trực tiếp)")
-        de_max = st.sidebar.slider("Mức vay nợ tối đa (D/E)", 0.0, 2.0, B5_DEFAULTS["de_max"], 0.05)
-        pe_max = st.sidebar.slider("Độ đắt tối đa (P/E)", 5, 30, B5_DEFAULTS["pe_max"])
-        roe_min = st.sidebar.slider("Sinh lời vốn tối thiểu (ROE %)", 0, 40, B5_DEFAULTS["roe_min"])
-        growth_min = st.sidebar.slider("Tăng trưởng lợi nhuận tối thiểu (%)", 0, 200, B5_DEFAULTS["growth_min"])
-        rsi_max = st.sidebar.slider("Độ nóng tối đa (RSI)", 30, 90, B5_DEFAULTS["rsi_max"])
-        price_min = st.sidebar.number_input("Giá tối thiểu (đ)", value=B5_DEFAULTS["price_min"], step=1000)
-        max_weight = st.sidebar.slider("Trần tỷ trọng mỗi mã", 0.2, 1.0, B5_DEFAULTS["max_weight"], 0.05)
+        can_cu.append("Chưa đủ lịch sử (cần ≥10 ngày dữ liệu) để đánh giá xu hướng — nhận định "
+                      "xu hướng sẽ tự xuất hiện khi hệ thống tích lũy đủ dữ liệu.")
 
-        df = df_b4.copy()
+    if not ket_luan:
+        ket_luan.append("🟡 Chưa đủ tín hiệu rõ ràng — nếu mục tiêu là tích lũy dài hạn, "
+                        "DCA đều đặn khối lượng nhỏ vẫn là cách ít rủi ro thời điểm nhất")
+    return ket_luan, can_cu
 
-        # Audit loại trừ — tái hiện logic B5 kèm lý do minh bạch
-        exclusions = {}
-        def exclude(mask, reason):
-            removed = df[mask]["Mã CK"].tolist()
-            if removed:
-                exclusions[reason] = removed
-            return df[~mask]
 
-        df = exclude(df["D/E"].isna(), "Không có số liệu nợ (thường là ngân hàng — cần cách đánh giá riêng)")
-        df = exclude(df["D/E"] < 0, "Nợ âm bất thường (có thể lỗi dữ liệu — cần kiểm tra lại)")
-        df = exclude(df["D/E"] > de_max, f"Vay nợ quá cao (D/E > {de_max})")
-        df = exclude((df["P/E"] <= 0) | (df["P/E"] > pe_max), f"Giá quá đắt (P/E ngoài khoảng 0–{pe_max})")
-        df = exclude(df["ROE Năm (%)"] < roe_min, f"Sinh lời vốn thấp (ROE < {roe_min}%)")
-        df = exclude(df["Tăng trưởng LNST (%)"] < growth_min, f"Tăng trưởng thấp (< {growth_min}%)")
-        df = exclude(df["Giá hiện tại"] < price_min, f"Giá quá thấp (< {price_min:,.0f}đ)")
-        df = exclude(df["RSI"] > rsi_max, f"Giá đang quá nóng (RSI > {rsi_max})")
+def tab_vang():
+    snap_df = load_csv(GOLD_SNAP)
+    hist = load_csv(GOLD_HIST)
 
-        if df.empty:
-            st.warning("Không mã nào đạt chuẩn với ngưỡng hiện tại — nên ưu tiên giữ tiền mặt, chờ cơ hội tốt hơn.")
-        else:
-            # Scoring giống B5: 40% Value + 40% Quality + 20% Technical
-            df["Quality_Score"] = df["ROE Năm (%)"].rank(pct=True) * 100
-            df["Value_Score"] = df["P/E"].rank(pct=True, ascending=False) * 100
-            rsi_comp = abs(df["RSI"] - 40).rank(pct=True, ascending=False) * 100
-            if "Chiết khấu từ đỉnh (%)" in df.columns:
-                disc_comp = df["Chiết khấu từ đỉnh (%)"].rank(pct=True) * 100
-                df["Technical_Score"] = rsi_comp * 0.5 + disc_comp * 0.5
-            else:
-                df["Technical_Score"] = rsi_comp
-            df["Total_Score"] = df["Value_Score"]*0.4 + df["Quality_Score"]*0.4 + df["Technical_Score"]*0.2
+    if snap_df is None or snap_df.empty:
+        st.info("Chưa có dữ liệu vàng. Hệ thống tự động (B6-gold_tracker) sẽ tạo file "
+                "'Bao_cao_vang.csv' sau lần chạy Actions đầu tiên có bước B6.")
+        return
+    snap = snap_df.iloc[0]
 
-            top = df.sort_values("Total_Score", ascending=False).head(5).copy()
-            raw_w = top["Total_Score"] / top["Total_Score"].sum()
-            capped = raw_w.clip(upper=max_weight)
-            top["Tỷ trọng (%)"] = (capped / capped.sum() * 100).round(2)
-            top["⚠️ Cần kiểm tra"] = top["Tăng trưởng LNST (%)"] > B5_DEFAULTS["growth_flag"]
+    st.caption(f"Cập nhật: {snap.get('cap_nhat_utc', '—')} UTC")
+    c1, c2, c3, c4 = st.columns(4)
+    if pd.notna(snap.get("gia_the_gioi_usd_oz")):
+        c1.metric("🌍 Thế giới (USD/oz)", f"{snap['gia_the_gioi_usd_oz']:,.0f}")
+    if pd.notna(snap.get("quy_doi_vnd_luong")):
+        c2.metric("Quy đổi (đ/lượng)", f"{snap['quy_doi_vnd_luong']:,.0f}",
+                  help="Giá thế giới × 1,20565 oz/lượng × tỷ giá USD/VND, chưa gồm thuế phí.")
+    if pd.notna(snap.get("sjc_ban")):
+        delta = f"+{snap['premium_sjc_pct']:.1f}% vs thế giới" if pd.notna(snap.get("premium_sjc_pct")) else None
+        c3.metric("Miếng SJC (bán ra)", f"{snap['sjc_ban']:,.0f}", delta, delta_color="inverse")
+    if pd.notna(snap.get("nhan_ban")):
+        delta = f"+{snap['premium_nhan_pct']:.1f}% vs thế giới" if pd.notna(snap.get("premium_nhan_pct")) else None
+        c4.metric("Nhẫn 9999 (bán ra)", f"{snap['nhan_ban']:,.0f}", delta, delta_color="inverse")
 
-            c1, c2 = st.columns([3, 2])
-            with c1:
-                st.markdown("**🏆 Danh mục gợi ý mua**")
-                if che_do_don_gian:
-                    cols = ["Mã CK", "Total_Score", "Tỷ trọng (%)", "ROE Năm (%)",
-                            "Tăng trưởng LNST (%)", "P/E", "RSI", "Giá hiện tại", "⚠️ Cần kiểm tra"]
-                    show = top[[c for c in cols if c in top.columns]].round(2)
-                    show = show.rename(columns={k: v for k, v in TEN_THAN_THIEN.items() if k in show.columns})
-                    st.dataframe(to_mau_bang(show.style, top).format(precision=2),
-                                 use_container_width=True, hide_index=True)
-                else:
-                    cols = ["Mã CK", "Total_Score", "P/E", "D/E", "ROE Năm (%)",
-                            "Tăng trưởng LNST (%)", "RSI", "Giá hiện tại", "Tỷ trọng (%)",
-                            "⚠️ Cần kiểm tra"]
-                    st.dataframe(top[cols].round(2), use_container_width=True, hide_index=True)
-                if che_do_don_gian:
-                    st.caption("**Nên mua bao nhiêu (%)** = gợi ý tỷ trọng vốn cho mỗi mã. "
-                               "🟢 xanh = tín hiệu tốt, 🔴 đỏ = đang nóng nên thận trọng, "
-                               "⚠️ = số tăng trưởng cao bất thường, nên kiểm tra lại báo cáo tài chính.")
-            with c2:
-                fig = px.pie(top, values="Tỷ trọng (%)", names="Mã CK", hole=0.45,
-                             title="Nên chia vốn thế nào")
-                st.plotly_chart(fig, use_container_width=True)
+    # Biểu đồ lịch sử
+    if hist is not None and len(hist) >= 2:
+        st.subheader("Diễn biến giá")
+        h = hist.copy()
+        h["ngay"] = pd.to_datetime(h["ngay"])
+        fig = go.Figure()
+        if h["gia_the_gioi_usd_oz"].notna().any():
+            fig.add_trace(go.Scatter(x=h["ngay"], y=h["quy_doi_vnd_luong"],
+                                     name="Thế giới quy đổi", line=dict(dash="dot")))
+        for col, name in [("sjc_ban", "Miếng SJC"), ("nhan_ban", "Nhẫn 9999")]:
+            if col in h.columns and h[col].notna().any():
+                fig.add_trace(go.Scatter(x=h["ngay"], y=h[col], name=name))
+        fig.update_layout(height=350, yaxis_title="đồng/lượng", margin=dict(t=10))
+        st.plotly_chart(fig, use_container_width=True)
 
-        with st.expander("📋 Vì sao các mã khác bị loại (bấm để xem)"):
-            if exclusions:
-                for reason, codes in exclusions.items():
-                    st.markdown(f"- **{reason}**: {', '.join(codes)}")
-            else:
-                st.write("Không mã nào bị loại.")
+    # Nhận định tự động
+    st.subheader("🤖 Nhận định tự động (theo quy tắc, không phải lời khuyên tài chính)")
+    ket_luan, can_cu = nhan_dinh_vang(snap, hist)
+    for k in ket_luan:
+        st.markdown(f"### {k}")
+    with st.expander("Căn cứ số liệu của nhận định trên"):
+        for c in can_cu:
+            st.markdown(f"- {c}")
+    st.warning("⚠️ Nhận định trên được máy tính sinh tự động từ các quy tắc chênh lệch giá và xu hướng "
+               "— chỉ mang tính tham khảo, KHÔNG phải khuyến nghị đầu tư. Giá vàng chịu ảnh hưởng của "
+               "nhiều yếu tố (Fed, tỷ giá, chính sách trong nước) mà quy tắc đơn giản không nắm bắt hết. "
+               "Quyết định cuối cùng thuộc về bạn.")
 
-st.divider()
-st.info("Dashboard này trực quan hóa kết quả pipeline sàng lọc — KHÔNG phải khuyến nghị đầu tư. "
-        "Mã bị gắn cờ tăng trưởng bất thường cần đối chiếu BCTC gốc trước khi tin số liệu. "
-        "Luôn kiểm tra ngày cập nhật dữ liệu ở tab Tổng quan.")
+
+# ============================================================
+# BỐ CỤC CHÍNH — tự làm mới mỗi 10 phút
+# ============================================================
+st.title("📊 Chứng khoán & Vàng")
+
+
+@st.fragment(run_every=600)
+def noi_dung_chinh():
+    tab_ck, tab_gold = st.tabs(["📈 Chứng khoán", "🥇 Vàng"])
+    with tab_ck:
+        tab_chung_khoan()
+    with tab_gold:
+        tab_vang()
+
+
+noi_dung_chinh()
