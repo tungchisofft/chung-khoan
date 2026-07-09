@@ -26,6 +26,13 @@ GOLD_HIST = "lich_su_vang.csv"
 B5 = dict(de_max=0.5, pe_max=15, roe_min=15, growth_min=20,
           price_min=10000, rsi_max=65, growth_flag=100, max_weight=0.45)
 
+TEN_NGAN = {"Mã CK": "Mã", "Total_Score": "Điểm", "Tỷ trọng (%)": "Tỷ trọng %",
+            "ROE Năm (%)": "ROE %", "Tăng trưởng LNST (%)": "Tăng trưởng %",
+            "P/E": "P/E", "D/E": "D/E", "RSI": "RSI", "Giá hiện tại": "Giá (đ)",
+            "Chiết khấu từ đỉnh (%)": "Giảm từ đỉnh %", "ADX": "ADX",
+            "Điểm sức mạnh": "Điểm TA", "Xu hướng DI": "Xu hướng",
+            "Giá_rescale_x1000": "Giá x1000?"}
+
 TEN = {"Mã CK": "Mã CP", "ROE Năm (%)": "Sinh lời vốn (ROE %)",
        "Tăng trưởng LNST (%)": "Tăng trưởng lợi nhuận (%)", "P/E": "Độ đắt/rẻ (P/E)",
        "RSI": "Nóng/nguội (RSI)", "Giá hiện tại": "Giá hiện tại (đ)",
@@ -76,17 +83,40 @@ def tab_chung_khoan():
             "→ loại rủi ro) và cho ra **danh sách gợi ý nên cân nhắc mua** kèm tỷ trọng vốn. "
             "🟢 xanh = tín hiệu tốt • 🟡 vàng = lưu ý • 🔴 đỏ = thận trọng.")
 
-    c1, c2 = st.columns([1, 2])
-    c1.metric("🕐 Dữ liệu cập nhật lúc (UTC)", LAST_UPDATE_UTC,
-              help="Do hệ thống tự động ghi mỗi lần chạy xong. Nếu số này quá cũ so với "
-                   "phiên giao dịch gần nhất, dữ liệu bên dưới chưa phải mới nhất.")
     if df_b4 is None:
         st.warning("Chưa có dữ liệu (thiếu Bao_cao_B4_Final.csv). Hệ thống tự động sẽ tạo file "
                    "này sau lần chạy đầu tiên.")
         return
 
-    # ---- KẾT QUẢ CHÍNH: danh mục gợi ý (logic B5) ----
-    st.subheader("🏆 Danh sách gợi ý hôm nay")
+    # ---- PHỄU LỌC 4 VÒNG ----
+    st.subheader("🔍 Phễu sàng lọc 4 vòng")
+    counts, labels = [], []
+    if df_b1 is not None: counts.append(len(df_b1)); labels.append(f"Vòng 1 - DN tốt ({len(df_b1)})")
+    if df_b3 is not None: counts.append(len(df_b3)); labels.append(f"Vòng 2 - Xu hướng lên ({len(df_b3)})")
+    counts.append(len(df_b4)); labels.append(f"Vòng 3 - Được chấm điểm ({len(df_b4)})")
+    fig = go.Figure(go.Funnel(y=labels, x=counts, textinfo="value"))
+    fig.update_layout(height=260, margin=dict(t=10, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ---- BẢNG CHI TIẾT VÒNG 1-3 (thu gọn) ----
+    with st.expander("📑 Bảng chi tiết vòng 1 → 3 (bấm để xem)"):
+        for label, d in [("Vòng 1 - Doanh nghiệp tốt", df_b1),
+                         ("Vòng 2 - Xu hướng giá lên", df_b3),
+                         ("Vòng 3 - Chấm điểm", df_b4)]:
+            if d is not None:
+                st.markdown(f"**{label}** ({len(d)} mã)")
+                dd = d.drop(columns=[c for c in ("Tăng_trưởng_YoY_thật", "ROE_TTM_thật") if c in d.columns])
+                dd = dd.rename(columns=TEN_NGAN)
+                dd.index = range(1, len(dd) + 1)  # số thứ tự từ 1
+                st.dataframe(dd.style.format(precision=2), use_container_width=True,
+                             height=bang_cao(dd, 300))
+        status = [{"File": f, "Trạng thái": "✅" if os.path.exists(f) else "❌",
+                   "Cập nhật": mtime_str(f)} for f in FILES.values()]
+        st.dataframe(pd.DataFrame(status), use_container_width=True, hide_index=True)
+        st.caption(f"Hệ thống tự động chạy xong lúc (UTC): {LAST_UPDATE_UTC}")
+
+    # ---- VÒNG 4: TƯ VẤN DANH MỤC (logic B5) — đặt SAU vòng 3 ----
+    st.subheader("🏆 Vòng 4 — Tư vấn danh mục (B5)")
     df = df_b4.copy()
     exclusions = {}
 
@@ -121,59 +151,32 @@ def tab_chung_khoan():
         top = df.sort_values("Total_Score", ascending=False).head(5).copy()
         w = (top["Total_Score"] / top["Total_Score"].sum()).clip(upper=B5["max_weight"])
         top["Tỷ trọng (%)"] = (w / w.sum() * 100).round(2)
-        top["⚠️ Cần kiểm tra"] = top["Tăng trưởng LNST (%)"] > B5["growth_flag"]
+        top["⚠️"] = top["Tăng trưởng LNST (%)"] > B5["growth_flag"]
 
         cA, cB = st.columns([3, 2])
         with cA:
             cols = ["Mã CK", "Total_Score", "Tỷ trọng (%)", "ROE Năm (%)",
-                    "Tăng trưởng LNST (%)", "P/E", "RSI", "Giá hiện tại", "⚠️ Cần kiểm tra"]
-            show = top[[c for c in cols if c in top.columns]].rename(columns=TEN)
+                    "Tăng trưởng LNST (%)", "P/E", "D/E", "RSI", "Giá hiện tại", "⚠️"]
+            show = top[[c for c in cols if c in top.columns]].rename(columns=TEN_NGAN)
+            show.index = range(1, len(show) + 1)  # số thứ tự từ 1
             styled = show.style.format(precision=2)
-            ten_rsi = TEN["RSI"]
-            if ten_rsi in show.columns:
-                styled = styled.map(mau_rsi, subset=[ten_rsi])
-            st.dataframe(styled, use_container_width=True, hide_index=True,
-                         height=bang_cao(show))
-            st.caption("**Nên mua bao nhiêu (%)** = gợi ý chia vốn. ⚠️ = tăng trưởng cao bất thường, "
-                       "nên tự kiểm tra lại báo cáo tài chính trước khi tin con số.")
+            if "RSI" in show.columns:
+                styled = styled.map(mau_rsi, subset=["RSI"])
+            st.dataframe(styled, use_container_width=True, height=bang_cao(show))
+            st.caption("**Tỷ trọng %** = gợi ý chia vốn cho mỗi mã. **D/E** = mức vay nợ "
+                       "(càng thấp càng an toàn). ⚠️ = tăng trưởng cao bất thường, nên tự "
+                       "kiểm tra lại báo cáo tài chính trước khi tin con số.")
         with cB:
             fig = px.pie(top, values="Tỷ trọng (%)", names="Mã CK", hole=0.45,
                          title="Nên chia vốn thế nào")
             st.plotly_chart(fig, use_container_width=True)
 
-    # ---- PHỄU LỌC + CHI TIẾT (thu gọn trong expander) ----
-    with st.expander("🔍 Xem hệ thống đã lọc thế nào (phễu 4 vòng)"):
-        counts, labels = [], []
-        if df_b1 is not None: counts.append(len(df_b1)); labels.append(f"Vòng 1 - DN tốt ({len(df_b1)})")
-        if df_b3 is not None: counts.append(len(df_b3)); labels.append(f"Vòng 2 - Xu hướng lên ({len(df_b3)})")
-        if df_b4 is not None: counts.append(len(df_b4)); labels.append(f"Vòng 3 - Được chấm điểm ({len(df_b4)})")
-        if not df.empty: counts.append(len(top)); labels.append(f"Vòng 4 - Gợi ý cuối ({len(top)})")
-        if counts:
-            fig = go.Figure(go.Funnel(y=labels, x=counts, textinfo="value"))
-            fig.update_layout(height=300, margin=dict(t=10, b=10))
-            st.plotly_chart(fig, use_container_width=True)
-
-        status = [{"File": f, "Trạng thái": "✅" if os.path.exists(f) else "❌",
-                   "Cập nhật": mtime_str(f)} for f in FILES.values()]
-        st.dataframe(pd.DataFrame(status), use_container_width=True, hide_index=True)
-
-    with st.expander("📋 Vì sao các mã khác bị loại"):
+    with st.expander("📋 Vì sao các mã khác bị loại ở vòng 4"):
         if exclusions:
             for reason, codes in exclusions.items():
                 st.markdown(f"- **{reason}**: {', '.join(codes)}")
         else:
             st.write("Không mã nào bị loại.")
-
-    with st.expander("📑 Bảng chi tiết từng vòng (cho người muốn xem sâu)"):
-        for label, d in [("Vòng 1 - Doanh nghiệp tốt", df_b1),
-                         ("Vòng 2 - Xu hướng giá lên", df_b3),
-                         ("Vòng 3 - Chấm điểm", df_b4)]:
-            if d is not None:
-                st.markdown(f"**{label}** ({len(d)} mã)")
-                dd = d.drop(columns=[c for c in ("Tăng_trưởng_YoY_thật", "ROE_TTM_thật") if c in d.columns])
-                dd = dd.rename(columns=TEN)
-                st.dataframe(dd.style.format(precision=2), use_container_width=True,
-                             height=bang_cao(dd, 300))
 
 
 # ============================================================
