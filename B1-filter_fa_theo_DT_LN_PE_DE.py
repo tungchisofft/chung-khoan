@@ -165,7 +165,16 @@ def loc_hybrid(symbol, stats):
         # SỬA (đặc thù nhãn BCTC VN): bỏ từ khóa trần 'Nợ phải trả' vì nó khớp cả
         # dòng "Nợ phải trả/Tổng nguồn vốn" (tức Nợ/Tổng tài sản - luôn <1) khiến
         # doanh nghiệp đòn bẩy cao vẫn lọt lưới D/E. Chỉ giữ nhãn đúng nghĩa Nợ/VCSH.
-        de, _ = get_metric_values(df_ratio, ['Nợ/VCSH', 'Nợ / VCSH', 'Debt/Equity',
+        # SỬA (xác nhận từ log chẩn đoán thực tế trên nguồn KBS): tên chỉ tiêu thật là
+        # "Tỷ số Nợ trên Vốn chủ sở hữu" - KHÁC HOÀN TOÀN các từ khóa suy đoán trước đó
+        # (Nợ/VCSH, Debt/Equity...). Đặt lên đầu danh sách vì đây là từ khóa đã XÁC NHẬN
+        # đúng, không còn là suy đoán. Cẩn thận: có 2 chỉ tiêu gần giống dễ nhầm:
+        #   - "Tỷ số Nợ NGẮN HẠN trên Vốn chủ sở hữu"  (không phải D/E tổng)
+        #   - "Tỷ số Nợ VAY trên Vốn chủ sở hữu"        (chỉ nợ vay, không phải tổng nợ)
+        # Từ khóa 'Nợ trên Vốn chủ sở hữu' không khớp nhầm 2 dòng trên vì chuỗi "ngắn hạn"/
+        # "vay" chen giữa "Nợ" và "trên" phá vỡ tính liên tục của substring khi so khớp.
+        de, _ = get_metric_values(df_ratio, ['Tỷ số Nợ trên Vốn chủ sở hữu',
+                                             'Nợ/VCSH', 'Nợ / VCSH', 'Debt/Equity',
                                              'Nợ phải trả/Vốn chủ sở hữu', 'Nợ phải trả/VCSH'])
         if de is None:
             stats['de_missing'] += 1
