@@ -169,6 +169,14 @@ def loc_hybrid(symbol, stats):
                                              'Nợ phải trả/Vốn chủ sở hữu', 'Nợ phải trả/VCSH'])
         if de is None:
             stats['de_missing'] += 1
+            # CHẨN ĐOÁN: D/E None ở gần như mọi mã (không phải vài mã lẻ tẻ) là dấu hiệu
+            # từ khóa dò tìm không khớp tên chỉ tiêu THẬT của nguồn KBS. In ra tối đa 3 lần
+            # (tránh làm ngợp log) toàn bộ danh sách 'item' thật để xác định đúng từ khóa
+            # cần dùng, thay vì tiếp tục đoán mù không có căn cứ.
+            if stats['de_missing'] <= 3 and df_ratio is not None and 'item' in df_ratio.columns:
+                print(f"🔬 CHẨN ĐOÁN D/E [{symbol}] - Danh sách chỉ tiêu thật từ nguồn KBS:")
+                for item_name in df_ratio['item'].astype(str).tolist():
+                    print(f"     - {item_name}")
 
         if de and de > 5:
             de = de / 100
