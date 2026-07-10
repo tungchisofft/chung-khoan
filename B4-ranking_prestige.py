@@ -98,12 +98,44 @@ def calculate_indicators(df):
     return df
 
 
+def fetch_price_history_with_retry(symbol, max_retries=3, wait_seconds=15):
+    """Lấy lịch sử giá có thử lại khi gặp lỗi tạm thời (rate-limit/timeout).
+
+    SỬA (theo yêu cầu): B4 trước đây gọi API 1 lần duy nhất - nếu vnstock rate-limit
+    tạm thời (đặc biệt khi chạy trên GitHub Actions, IP dùng chung dễ bị giới hạn
+    hơn máy cá nhân), mã đó bị loại NGAY dù bản thân mã không có vấn đề gì. Áp dụng
+    cùng kiểu retry đã dùng ở B1 (fetch_finance_data_with_retry) để B4 cố gắng lấy
+    đủ dữ liệu cho TẤT CẢ mã mà B3 đưa vào, đúng nguyên tắc "B3 ra N mã thì B4 phải
+    cố chấm đủ N mã".
+
+    SỬA THÊM: 8s -> 15s, khớp đúng thời gian chờ mà thông báo lỗi RateLimitExceed
+    của chính VCI khuyến nghị ("Vui lòng thử lại sau 15 giây") - xác nhận từ blog
+    chính thức vnstock. Không sửa B1 vì B1 dùng nguồn KBS (bộ đếm rate-limit RIÊNG
+    biệt với VCI) và chưa từng ghi nhận lỗi hàng loạt."""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            quote = vnstock.Quote(symbol=symbol, source='VCI')
+            df = quote.history(
+                start=(datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
+                end=datetime.now().strftime('%Y-%m-%d'),
+                resolution='1D')
+            if df is not None and not df.empty:
+                return df, None
+            last_error = "Dữ liệu trả về rỗng"
+        except Exception as e:
+            last_error = str(e)
+        if attempt < max_retries - 1:
+            time.sleep(wait_seconds)
+    return None, last_error
+
+
 def score_stock(symbol, stats):
     try:
-        quote = vnstock.Quote(symbol=symbol, source='VCI')
-        df = quote.history(start=(datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'), end=datetime.now().strftime('%Y-%m-%d'), resolution='1D')
-        if df is None or df.empty:
+        df, err = fetch_price_history_with_retry(symbol)
+        if df is None:
             stats['no_data'] += 1
+            stats.setdefault('no_data_symbols', []).append(f"{symbol}({err})")
             return None
         df.columns = df.columns.str.lower()
         rescaled = False
@@ -144,9 +176,12 @@ def score_stock(symbol, stats):
             'Điểm sức mạnh': round(score, 2),
             'Giá_rescale_x1000': rescaled
         }
-    except Exception:
+    except Exception as e:
         stats['error'] += 1
+        stats.setdefault('error_symbols', []).append(f"{symbol}({e})")
         return None
+
+
 
 
 if __name__ == "__main__":
@@ -168,13 +203,20 @@ if __name__ == "__main__":
         if ta_stats:
             combined_row = {**row.to_dict(), **ta_stats}
             results.append(combined_row)
-        time.sleep(0.5)
+        # SỬA: 0.5s -> 1.2s. Gói API vnstock Cộng đồng giới hạn 60 request/phút;
+        # 0.5s tương đương ~120 req/phút - VƯỢT GẤP ĐÔI giới hạn, là nguyên nhân
+        # trực tiếp gây lỗi hàng loạt (rate-limit) khi chạy trên GitHub Actions.
+        time.sleep(1.2)
 
     print("\n" + "=" * 55)
     print("📊 BÁO CÁO MINH BẠCH BƯỚC B4:")
-    print(f" - Không lấy được dữ liệu giá / lỗi kết nối:    {stats['no_data']} mã")
+    print(f" - Không lấy được dữ liệu giá / lỗi kết nối (đã thử lại 3 lần): {stats['no_data']} mã")
     print(f" - Lỗi tính toán không xác định khác:           {stats['error']} mã")
     print(f" - Giá bị tự động nhân 1000 (suy đoán đơn vị):  {stats['unit_rescaled']} mã")
+    if stats.get('no_data_symbols'):
+        print(f"   Chi tiết mã lỗi dữ liệu: {', '.join(stats['no_data_symbols'])}")
+    if stats.get('error_symbols'):
+        print(f"   Chi tiết mã lỗi tính toán: {', '.join(stats['error_symbols'])}")
     print("=" * 55)
 
     if results:

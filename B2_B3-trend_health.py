@@ -107,13 +107,29 @@ def auto_update_market_regime():
         sys.exit(1)
 
 
+def fetch_price_history_with_retry(symbol, max_retries=3, wait_seconds=15):
+    """Lấy lịch sử giá có thử lại khi gặp lỗi tạm thời (rate-limit/timeout).
+    SỬA: 8s -> 15s, khớp đúng thời gian chờ mà thông báo lỗi RateLimitExceed của
+    chính VCI khuyến nghị ("Vui lòng thử lại sau 15 giây") - xác nhận từ blog
+    chính thức vnstock. VCI có bộ đếm rate-limit RIÊNG BIỆT với các nguồn khác."""
+    for attempt in range(max_retries):
+        try:
+            quote = vnstock.Quote(symbol=symbol, source='VCI')
+            df = quote.history(start=(datetime.now() - timedelta(days=350)).strftime('%Y-%m-%d'),
+                               end=datetime.now().strftime('%Y-%m-%d'), resolution='1D')
+            if df is not None and not df.empty:
+                return df
+        except Exception:
+            pass
+        if attempt < max_retries - 1:
+            time.sleep(wait_seconds)
+    return None
+
+
 def check_technical_health_diagnostics(symbol, avg_vol_min, vol_max, min_value_bn):
     """Hàm test kỹ thuật cho từng mã cổ phiếu (Dùng thông số động từ JSON)"""
     try:
-        # Sử dụng nguồn VCI đang hoạt động tốt
-        quote = vnstock.Quote(symbol=symbol, source='VCI')
-        df = quote.history(start=(datetime.now() - timedelta(days=350)).strftime('%Y-%m-%d'),
-                           end=datetime.now().strftime('%Y-%m-%d'), resolution='1D')
+        df = fetch_price_history_with_retry(symbol)
 
         if df is None or len(df) < 200:
             return False, 'data'
@@ -189,7 +205,11 @@ if __name__ == "__main__":
         if (index + 1) % 20 == 0:
             print(f"🔄 Đang rà soát đến mã thứ {index + 1}/{total_ma}")
 
-        time.sleep(0.5)
+        # SỬA: 0.5s -> 1.2s. Gói API vnstock Cộng đồng giới hạn 60 request/phút;
+        # 0.5s tương đương ~120 req/phút - VƯỢT GẤP ĐÔI giới hạn, là nguyên nhân
+        # trực tiếp gây lỗi hàng loạt (rate-limit) khi chạy trên GitHub Actions.
+        # 1.2s -> ~50 req/phút, có biên an toàn dưới ngưỡng 60.
+        time.sleep(1.2)
 
     print("\n" + "="*55)
     print("📊 BÁO CÁO NGUYÊN NHÂN BỊ LOẠI:")
@@ -207,7 +227,14 @@ if __name__ == "__main__":
 
     if passed_rows:
         df_b3 = pd.DataFrame(passed_rows)
-        df_b3.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
-        print(f"\n✅ Đã lọc được {len(passed_rows)} mã đạt chuẩn. Lưu tại: {OUTPUT_FILE}")
+        try:
+            df_b3.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
+            print(f"\n✅ Đã lọc được {len(passed_rows)} mã đạt chuẩn. Lưu tại: {OUTPUT_FILE}")
+        except PermissionError:
+            print(f"\n❌ LỖI: File '{OUTPUT_FILE}' đang bị khóa (thường do đang mở bằng Excel).")
+            print(f"   File CŨ trên đĩa CHƯA được cập nhật — nếu chạy B4 tiếp theo lúc này,")
+            print(f"   B4 sẽ đọc nhầm dữ liệu CŨ, không phải {len(passed_rows)} mã vừa lọc được ở trên.")
+            print(f"   → Hãy đóng file '{OUTPUT_FILE}' rồi chạy lại B2/B3 trước khi chạy B4.")
+            sys.exit(1)
     else:
         print("\n❌ TRẮNG BẢNG! Không có mã nào vượt qua các màng lọc kỹ thuật.")
