@@ -32,9 +32,18 @@ echo.
 echo Dang chay B5 (Danh muc)...
 python B5-portfolio_execution.py
 
+:: 4. Ghi file trigger (.py) - GIONG HET buoc GitHub Actions lam - de web
+::    Streamlit Cloud nhan dien day la thay doi CODE (dang tin cay hon CSV don
+::    thuan) va tu tai lai. QUAN TRONG: nho upload CA file nay len GitHub cung
+::    voi 3 file CSV, neu khong web se khong tu cap nhat nhu da gap truoc day.
+echo.
+echo Dang ghi file trigger cho web...
+powershell -Command "$now = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm'); Set-Content -Path '_last_update_marker.py' -Value ('\"\"\"File nay duoc ghi tu dong sau moi lan chay local.\"\"\"' + [Environment]::NewLine + 'LAST_UPDATE_UTC = \"' + $now + ' UTC (chay local)\"') -Encoding UTF8"
+
 echo.
 echo --- HOAN TAT! ---
-echo NHAC: Neu ban dung web tren GitHub/Streamlit, dung quen UPLOAD 4 file CSV/JSON
-echo vua tao (Bao_cao_FA_AI.csv, Bao_cao_B3.csv, Bao_cao_B4_Final.csv) len GitHub -
-echo chay o day KHONG tu dong dong bo len web.
+echo NHAC: Neu ban dung web tren GitHub/Streamlit, dung quen UPLOAD 5 file sau len GitHub:
+echo   Bao_cao_FA_AI.csv, Bao_cao_B3.csv, Bao_cao_B4_Final.csv,
+echo   trading_parameters.json, _last_update_marker.py (file MOI - bat buoc de web tu cap nhat)
+echo Chay o day KHONG tu dong dong bo len web - phai tu tay upload.
 pause
