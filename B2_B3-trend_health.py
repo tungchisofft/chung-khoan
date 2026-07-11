@@ -126,6 +126,9 @@ def fetch_price_history_with_retry(symbol, max_retries=3, wait_seconds=15):
     return None
 
 
+GIA_CACHE_DIR = "gia_cache"
+
+
 def check_technical_health_diagnostics(symbol, avg_vol_min, vol_max, min_value_bn):
     """Hàm test kỹ thuật cho từng mã cổ phiếu (Dùng thông số động từ JSON)"""
     try:
@@ -161,10 +164,21 @@ def check_technical_health_diagnostics(symbol, avg_vol_min, vol_max, min_value_b
         if volatility > vol_max:
             return False, 'volatility'
 
+        # SỬA (giảm 50% tổng request toàn pipeline): lưu cache giá thô của mã ĐẠT
+        # CHUẨN để B4 chạy ngay sau đó TÁI SỬ DỤNG, không phải gọi API lần 2 cho
+        # cùng 1 mã. B2/B3 và B4 chạy liên tiếp trong CÙNG 1 job Actions nên
+        # filesystem dùng chung, không cần artifact hay cơ chế truyền phức tạp.
+        try:
+            os.makedirs(GIA_CACHE_DIR, exist_ok=True)
+            df.to_csv(os.path.join(GIA_CACHE_DIR, f"{symbol}.csv"), index=False, encoding='utf-8-sig')
+        except Exception:
+            pass  # cache lỗi không quan trọng - B4 vẫn có fallback tự gọi API riêng
+
         success_reason = f"Giá > MA200 ({price:,.0f} > {ma200:,.0f}), GTGD: {avg_value_bn:.1f} tỷ/phiên, Biến động: {volatility:.1f}%"
         return True, success_reason
     except Exception:
         return False, 'error'
+
 
 
 if __name__ == "__main__":

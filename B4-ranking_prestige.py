@@ -130,13 +130,39 @@ def fetch_price_history_with_retry(symbol, max_retries=3, wait_seconds=15):
     return None, last_error
 
 
+GIA_CACHE_DIR = "gia_cache"
+
+
+def load_from_cache(symbol):
+    """Đọc cache giá do B2/B3 đã lưu (cùng job, cùng filesystem). Trả về None
+    nếu không có, để score_stock tự fallback gọi API riêng."""
+    path = os.path.join(GIA_CACHE_DIR, f"{symbol}.csv")
+    if os.path.exists(path):
+        try:
+            df = pd.read_csv(path)
+            if not df.empty:
+                return df
+        except Exception:
+            pass
+    return None
+
+
 def score_stock(symbol, stats):
     try:
-        df, err = fetch_price_history_with_retry(symbol)
+        # SỬA (giảm 50% tổng request toàn pipeline): ưu tiên dùng cache giá mà
+        # B2/B3 đã tải sẵn cho đúng mã này (đã đạt chuẩn kỹ thuật) - KHÔNG gọi
+        # lại API. Chỉ khi cache không có (chạy B4 độc lập, hoặc cache lỗi) mới
+        # fallback về gọi API như trước.
+        df = load_from_cache(symbol)
+        used_cache = df is not None
         if df is None:
-            stats['no_data'] += 1
-            stats.setdefault('no_data_symbols', []).append(f"{symbol}({err})")
-            return None
+            df, err = fetch_price_history_with_retry(symbol)
+            if df is None:
+                stats['no_data'] += 1
+                stats.setdefault('no_data_symbols', []).append(f"{symbol}({err})")
+                return None
+        stats['from_cache'] = stats.get('from_cache', 0) + (1 if used_cache else 0)
+
         df.columns = df.columns.str.lower()
         rescaled = False
         if df['close'].iloc[-1] < 1000:
@@ -198,18 +224,21 @@ if __name__ == "__main__":
 
     for index, row in df_b3.iterrows():
         ma = row['Mã CK']
+        truoc_khi_cache = stats.get('from_cache', 0)
         ta_stats = score_stock(ma, stats)
 
         if ta_stats:
             combined_row = {**row.to_dict(), **ta_stats}
             results.append(combined_row)
-        # SỬA: 0.5s -> 1.2s. Gói API vnstock Cộng đồng giới hạn 60 request/phút;
-        # 0.5s tương đương ~120 req/phút - VƯỢT GẤP ĐÔI giới hạn, là nguyên nhân
-        # trực tiếp gây lỗi hàng loạt (rate-limit) khi chạy trên GitHub Actions.
-        time.sleep(1.2)
+        # SỬA: chỉ chờ 1.2s nếu THỰC SỰ có gọi API (không dùng cache từ B2/B3) -
+        # mã dùng cache không tốn request nên không cần giãn cách.
+        da_dung_cache = stats.get('from_cache', 0) > truoc_khi_cache
+        if not da_dung_cache:
+            time.sleep(1.2)
 
     print("\n" + "=" * 55)
     print("📊 BÁO CÁO MINH BẠCH BƯỚC B4:")
+    print(f" - Dùng lại cache từ B2/B3 (KHÔNG tốn request):      {stats.get('from_cache', 0)} mã")
     print(f" - Không lấy được dữ liệu giá / lỗi kết nối (đã thử lại 3 lần): {stats['no_data']} mã")
     print(f" - Lỗi tính toán không xác định khác:           {stats['error']} mã")
     print(f" - Giá bị tự động nhân 1000 (suy đoán đơn vị):  {stats['unit_rescaled']} mã")
