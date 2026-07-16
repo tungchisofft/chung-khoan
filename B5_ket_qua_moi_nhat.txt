@@ -25,21 +25,21 @@
 ┃  🔗 Tham gia ngay: https://vnstocks.com/insiders-program#tiers                  ┃
 ┃                                                                                 ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-📊 VN-Index: 1,782.12 | MA200: 1,770.28
+📊 VN-Index: 1,804.24 | MA200: 1,770.97
 ℹ️  Lưu ý: tín hiệu 'Trên MA200' chỉ phản ánh xu hướng giá, KHÔNG thay thế việc
     kiểm tra thủ công độ rộng thị trường, thanh khoản và dòng vốn khối ngoại.
 
 ✅ XÁC NHẬN VĨ MÔ: Thị trường duy trì xu hướng (Trên MA200). Kích hoạt module TÌM KIẾM.
 
 📋 NHẬT KÝ LOẠI TRỪ (đối chiếu thủ công, tránh tin mù quáng vào bộ lọc):
-  - D/E rỗng (khả năng là ngân hàng - D/E không phù hợp, cần mô hình riêng cho ngành ngân hàng): OCB, ABB, KLB, HDB, LPB, NAB, MSB
-  - D/E > 0.5 (đòn bẩy cao): DHC, PVD, TNI, TTA
+  - D/E rỗng (khả năng là ngân hàng - D/E không phù hợp, cần mô hình riêng cho ngành ngân hàng): OCB, ABB, KLB, LPB, NAB, HDB, MSB
+  - D/E > 0.5 (đòn bẩy cao): DHC, PVD, TNI, TTA, BWE
 
 🏆 TOP CỔ PHIẾU VƯỢT QUA KIỂM ĐỊNH RỦI RO (CẦN TỰ THẨM ĐỊNH THÊM TRƯỚC KHI MUA):
 ==================================================================================================================================
 Mã CK Total_Score  P/E  D/E  ROE Năm (%)  Tăng trưởng LNST (%)  RSI  Giá hiện tại  Tỷ_trọng_đề_xuất_%  Cảnh_báo_tăng_trưởng_bất_thường  Cảnh_báo_thanh_khoản(proxy)  Cảnh_báo_growth_QoQ  Cảnh_báo_ROE_x4 Xu hướng DI  Giá_rescale_x1000
-  BSR        75.0 10.5 0.41         80.2                 659.7 51.6       26300.0                50.0                             True                        False                 True            False        Tăng               True
-  QNS        75.0  9.0 0.35         19.0                  54.4 51.5       48700.0                50.0                            False                        False                 True            False        Tăng               True
+  BSR        75.0 10.5 0.41         80.2                 659.7 50.0       26000.0                50.0                             True                        False                 True            False        Giảm               True
+  QNS        75.0  9.0 0.35         19.0                  54.4 49.5       48600.0                50.0                            False                        False                 True            False        Tăng               True
 ==================================================================================================================================
 
 💡 HÀNH ĐỘNG CHIẾN LƯỢC:
