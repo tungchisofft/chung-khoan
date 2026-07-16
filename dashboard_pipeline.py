@@ -250,20 +250,92 @@ def tab_vang():
         delta = f"+{snap['premium_nhan_pct']:.1f}% vs thế giới" if pd.notna(snap.get("premium_nhan_pct")) else None
         c4.metric("Nhẫn 9999 (bán ra)", f"{snap['nhan_ban']:,.0f}", delta, delta_color="inverse")
 
-    # Biểu đồ lịch sử
+    # ============================================================
+    # BIỂU ĐỒ SO SÁNH: THẾ GIỚI (USD/oz) vs TRONG NƯỚC (đồng/lượng)
+    # ============================================================
     if hist is not None and len(hist) >= 2:
-        st.subheader("Diễn biến giá")
         h = hist.copy()
         h["ngay"] = pd.to_datetime(h["ngay"])
+        h = h.sort_values("ngay")
+
+        st.subheader("Diễn biến giá: Thế giới vs Trong nước")
+        st.caption("Trục trái (đường liền) = giá trong nước, đồng/lượng. Trục phải (đường đứt) = "
+                   "giá thế giới, USD/oz — tách trục vì đơn vị khác nhau, giúp so sánh ĐÚNG HÌNH DẠNG "
+                   "xu hướng (cùng tăng/giảm hay lệch pha) thay vì bị tỷ giá làm nhiễu.")
+
         fig = go.Figure()
-        if h["gia_the_gioi_usd_oz"].notna().any():
-            fig.add_trace(go.Scatter(x=h["ngay"], y=h["quy_doi_vnd_luong"],
-                                     name="Thế giới quy đổi", line=dict(dash="dot")))
-        for col, name in [("sjc_ban", "Miếng SJC"), ("nhan_ban", "Nhẫn 9999")]:
+        co_du_lieu_trong_nuoc = False
+        for col, name, mau in [("sjc_ban", "Miếng SJC (bán)", "#c0392b"),
+                                ("nhan_ban", "Nhẫn 9999 (bán)", "#d4a017")]:
             if col in h.columns and h[col].notna().any():
-                fig.add_trace(go.Scatter(x=h["ngay"], y=h[col], name=name))
-        fig.update_layout(height=350, yaxis_title="đồng/lượng", margin=dict(t=10))
+                fig.add_trace(go.Scatter(x=h["ngay"], y=h[col], name=name,
+                                         line=dict(color=mau), yaxis="y1"))
+                co_du_lieu_trong_nuoc = True
+        if h["gia_the_gioi_usd_oz"].notna().any():
+            fig.add_trace(go.Scatter(x=h["ngay"], y=h["gia_the_gioi_usd_oz"],
+                                     name="Thế giới (USD/oz)", line=dict(color="#2980b9", dash="dot"),
+                                     yaxis="y2"))
+
+        fig.update_layout(
+            height=380, margin=dict(t=10),
+            yaxis=dict(title="Trong nước (đồng/lượng)"),
+            yaxis2=dict(title="Thế giới (USD/oz)", overlaying="y", side="right", showgrid=False),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        )
         st.plotly_chart(fig, use_container_width=True)
+
+        # ============================================================
+        # PHÂN TÍCH SÂU GIÁ VÀNG TRONG NƯỚC (ưu tiên theo yêu cầu)
+        # ============================================================
+        if co_du_lieu_trong_nuoc:
+            st.subheader("🔍 Phân tích sâu giá vàng trong nước")
+
+            n_ngay = len(h)
+            cA, cB, cC = st.columns(3)
+
+            for col, name, cot in [("sjc_ban", "Miếng SJC", cA), ("nhan_ban", "Nhẫn 9999", cB)]:
+                s = h[col].dropna()
+                if len(s) >= 2:
+                    thay_doi = s.iloc[-1] - s.iloc[0]
+                    thay_doi_pct = thay_doi / s.iloc[0] * 100
+                    cot.metric(f"{name} — thay đổi {n_ngay} ngày qua",
+                               f"{thay_doi:+,.0f} đ/lượng", f"{thay_doi_pct:+.2f}%")
+                    cot.caption(f"Cao nhất: {s.max():,.0f} • Thấp nhất: {s.min():,.0f}")
+
+            # Chênh lệch mua-bán (spread) - thước đo thanh khoản/chi phí giao dịch
+            with cC:
+                spreads = []
+                for mua_col, ban_col, name in [("sjc_mua", "sjc_ban", "SJC"),
+                                                ("nhan_mua", "nhan_ban", "Nhẫn")]:
+                    if mua_col in h.columns and ban_col in h.columns:
+                        s_gap = (h[ban_col] - h[mua_col]).dropna()
+                        if len(s_gap):
+                            spreads.append((name, s_gap.iloc[-1]))
+                if spreads:
+                    st.metric("Chênh lệch mua-bán hiện tại",
+                              " | ".join(f"{n}: {g:,.0f}đ" for n, g in spreads),
+                              help="Khoảng cách giữa giá bán ra và mua vào của tiệm vàng — "
+                                   "càng rộng, chi phí 'mua rồi bán ngay' càng cao (thước đo "
+                                   "thanh khoản, không phải chỉ báo xu hướng giá).")
+
+            # Biểu đồ xu hướng premium theo thời gian - giá trị phân tích cao nhất
+            st.markdown("**Xu hướng chênh lệch (premium) so với giá thế giới quy đổi**")
+            fig2 = go.Figure()
+            co_premium = False
+            for col, name, mau in [("premium_sjc_pct", "Premium SJC (%)", "#c0392b"),
+                                    ("premium_nhan_pct", "Premium Nhẫn (%)", "#d4a017")]:
+                if col in h.columns and h[col].notna().any():
+                    fig2.add_trace(go.Scatter(x=h["ngay"], y=h[col], name=name, line=dict(color=mau)))
+                    co_premium = True
+            if co_premium:
+                fig2.add_hline(y=0, line_dash="dash", line_color="gray")
+                fig2.update_layout(height=280, margin=dict(t=10), yaxis_title="% cao hơn thế giới")
+                st.plotly_chart(fig2, use_container_width=True)
+                st.caption("Đường đi LÊN = giá trong nước đang đắt hơn thế giới NHANH hơn (rủi ro "
+                           "'xì hơi' premium khi mua). Đường đi XUỐNG = khoảng cách đang thu hẹp "
+                           "(thường xảy ra khi cung vàng trong nước tăng hoặc nhu cầu hạ nhiệt).")
+            else:
+                st.caption("Chưa đủ dữ liệu premium để vẽ xu hướng.")
 
     # Nhận định tự động
     st.subheader("🤖 Nhận định tự động (theo quy tắc, không phải lời khuyên tài chính)")
