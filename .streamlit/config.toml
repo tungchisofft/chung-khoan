@@ -1,0 +1,6 @@
+[server]
+# Tự động chạy lại app khi phát hiện file thay đổi trên đĩa (CSV, .py trigger...).
+# Mặc định của Streamlit là false - đây chính là nguyên nhân khiến app không tự
+# cập nhật dù GitHub Actions đã đẩy CSV/marker mới vào đúng container: file đã
+# đổi trên đĩa, nhưng tiến trình Streamlit không tự "rerun" nếu không có dòng này.
+runOnSave = true
