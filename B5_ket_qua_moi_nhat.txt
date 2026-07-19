@@ -38,9 +38,11 @@
 🏆 TOP CỔ PHIẾU VƯỢT QUA KIỂM ĐỊNH RỦI RO (CẦN TỰ THẨM ĐỊNH THÊM TRƯỚC KHI MUA):
 ==================================================================================================================================
 Mã CK Total_Score  P/E  D/E  ROE Năm (%)  Tăng trưởng LNST (%)  RSI  Giá hiện tại  Tỷ_trọng_đề_xuất_%  Cảnh_báo_tăng_trưởng_bất_thường  Cảnh_báo_thanh_khoản(proxy)  Cảnh_báo_growth_QoQ  Cảnh_báo_ROE_x4 Xu hướng DI  Giá_rescale_x1000
-  BSR        86.7 10.5 0.41         80.2                 659.7 44.7       24900.0                43.3                             True                        False                 True            False        Giảm               True
-  QNS        73.3  9.0 0.35         19.0                  54.4 47.6       48500.0                36.7                            False                        False                 True            False        Tăng               True
-  SAB        40.0 14.2 0.42         18.4                  39.9 45.8       46900.0                20.0                            False                        False                 True            False        Giảm               True
+  BSR        76.0 10.5 0.41         80.2                 659.7 44.7       24900.0                25.3                             True                        False                 True            False        Giảm               True
+  BMP        64.0  9.8 0.26         42.3                  34.1 57.4      151600.0                21.3                            False                        False                 True            False        Tăng               True
+  QNS        64.0  9.0 0.35         19.0                  54.4 47.6       48500.0                21.3                            False                        False                 True            False        Tăng               True
+  TRC        56.0  5.8 0.19         17.1                 213.1 47.7       78000.0                18.7                             True                        False                 True            False        Tăng               True
+  SAB        40.0 14.2 0.42         18.4                  39.9 45.8       46900.0                13.3                            False                        False                 True            False        Giảm               True
 ==================================================================================================================================
 
 💡 HÀNH ĐỘNG CHIẾN LƯỢC:
