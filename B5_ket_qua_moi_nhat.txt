@@ -25,36 +25,8 @@
 ┃  🔗 Tham gia ngay: https://vnstocks.com/insiders-program#tiers                  ┃
 ┃                                                                                 ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-📊 VN-Index: 1,787.45 | MA200: 1,771.61
-ℹ️  Lưu ý: tín hiệu 'Trên MA200' chỉ phản ánh xu hướng giá, KHÔNG thay thế việc
-    kiểm tra thủ công độ rộng thị trường, thanh khoản và dòng vốn khối ngoại.
+📊 VN-Index: 1,743.51 | MA200: 1,771.99
 
-✅ XÁC NHẬN VĨ MÔ: Thị trường duy trì xu hướng (Trên MA200). Kích hoạt module TÌM KIẾM.
-
-📋 NHẬT KÝ LOẠI TRỪ (đối chiếu thủ công, tránh tin mù quáng vào bộ lọc):
-  - D/E rỗng (khả năng là ngân hàng - D/E không phù hợp, cần mô hình riêng cho ngành ngân hàng): ABB, OCB, NAB, KLB, LPB, HDB, MSB
-  - D/E > 0.5 (đòn bẩy cao): DHC, PVD, TTA, BWE, TNI
-
-🏆 TOP CỔ PHIẾU VƯỢT QUA KIỂM ĐỊNH RỦI RO (CẦN TỰ THẨM ĐỊNH THÊM TRƯỚC KHI MUA):
-==================================================================================================================================
-Mã CK Total_Score  P/E  D/E  ROE Năm (%)  Tăng trưởng LNST (%)  RSI  Giá hiện tại  Tỷ_trọng_đề_xuất_%  Cảnh_báo_tăng_trưởng_bất_thường  Cảnh_báo_thanh_khoản(proxy)  Cảnh_báo_growth_QoQ  Cảnh_báo_ROE_x4 Xu hướng DI  Giá_rescale_x1000
-  BSR        76.0 10.5 0.41         80.2                 659.7 44.7       24900.0                25.3                             True                        False                 True            False        Giảm               True
-  BMP        64.0  9.8 0.26         42.3                  34.1 57.4      151600.0                21.3                            False                        False                 True            False        Tăng               True
-  QNS        64.0  9.0 0.35         19.0                  54.4 47.6       48500.0                21.3                            False                        False                 True            False        Tăng               True
-  TRC        56.0  5.8 0.19         17.1                 213.1 47.7       78000.0                18.7                             True                        False                 True            False        Tăng               True
-  SAB        40.0 14.2 0.42         18.4                  39.9 45.8       46900.0                13.3                            False                        False                 True            False        Giảm               True
-==================================================================================================================================
-
-💡 HÀNH ĐỘNG CHIẾN LƯỢC:
-- Phân bổ vốn: theo cột 'Tỷ_trọng_đề_xuất_%' (trọng số theo điểm tin cậy,
-  trần tối đa 45%/mã) — KHÔNG còn chia đều máy móc
-  cho các mã có rủi ro thanh khoản khác nhau.
-- Quản trị: Stop-loss tham chiếu -7% từ điểm mua. LƯU Ý ĐẶC THÙ VN:
-  (1) Chu kỳ thanh toán T+2,5: cổ phiếu mua mới chỉ bán được sớm nhất từ phiên
-      CHIỀU ngày T+2 -> stop-loss KHÔNG bảo vệ được trong ~2,5 ngày đầu nắm giữ.
-  (2) Biên độ trần/sàn: HOSE ±7%, HNX ±10%, UPCoM ±15% -> một phiên giảm sàn
-      HOSE đã chạm mức cắt lỗ; chuỗi giảm sàn có thể MẤT THANH KHOẢN (dư bán
-      sàn không khớp) khiến lệnh cắt lỗ không khớp được ở mức mong muốn.
-  Với mã gắn cờ 'Cảnh_báo_thanh_khoản(proxy)': nới biên hoặc dùng lệnh giới hạn.
-- Mã có 'Cảnh_báo_tăng_trưởng_bất_thường'=True: đối chiếu LNST cùng kỳ năm
-  trước khi tin vào % tăng trưởng (khả năng do hiệu ứng nền thấp).
+🚨 CẢNH BÁO ĐỎ (RISK-OFF): Thị trường gãy vỡ vùng hỗ trợ Dài hạn (MA200),
+    hoặc dữ liệu vĩ mô chưa xác thực được.
+🛑 HÀNH ĐỘNG: Đóng băng toàn bộ lệnh giải ngân tấn công. Bảo vệ tỷ trọng Tiền mặt.
