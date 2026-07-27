@@ -3,14 +3,6 @@
 🌍 Đang quét dữ liệu vĩ mô (VN-Index)...
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃                                                                                 ┃
-┃  ⚠️ THÔNG BÁO QUAN TRỌNG                                                        ┃
-┃                                                                                 ┃
-┃  Phát hành vnstock 4.0.1 cung cấp sửa lỗi quan trọng và bổ sung giao diện API   ┃
-┃  thống nhất (Unified UI), tăng tính ổn định của code.                           ┃
-┃  Cập nhật: pip install vnstock -U                                               ┃
-┃  AI Agent Guide: https://github.com/vnstock-hq/vnstock-agent-guide/             ┃
-┃                                                                                 ┃
-┃  ────────────────────────────────────────────────────────────────────────────── ┃
 ┃                                                                                 ┃
 ┃  🚀 VNSTOCK INSIDERS PROGRAM - NÂNG TẦM TRẢI NGHIỆM CỦA BẠN! 🚀                 ┃
 ┃                                                                                 ┃
@@ -20,12 +12,12 @@
 ┃  🔓 Mở rộng khả năng sử dụng API tối đa                                         ┃
 ┃  ⚡ Tăng tốc tải dữ liệu từ 5-8 lần                                              ┃
 ┃  📈 Tăng giới hạn truy cập API lên đến 5 lần                                    ┃
-┃  🤖 Dùng AI Agent viết code hiệu quả với tài liệu Agent Guide                    ┃
+┃  🤖 Dùng AI Agent viết code hiệu quả với tài liệu Agent Guide                   ┃
 ┃                                                                                 ┃
-┃  🔗 Tham gia ngay: https://vnstocks.com/insiders-program#tiers                  ┃
+┃  🔗 Tham gia ngay: https://vnstocks.com/insiders-program.                       ┃
 ┃                                                                                 ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-📊 VN-Index: 1,686.11 | MA200: 1,772.79
+📊 VN-Index: 1,669.01 | MA200: 1,772.66
 
 🚨 CẢNH BÁO ĐỎ (RISK-OFF): Thị trường gãy vỡ vùng hỗ trợ Dài hạn (MA200),
     hoặc dữ liệu vĩ mô chưa xác thực được.
