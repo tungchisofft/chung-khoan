@@ -1,7 +1,7 @@
 ﻿Mã CK,ROE Năm (%),Tăng trưởng LNST (%),P/E,D/E,Tăng_trưởng_YoY_thật,ROE_TTM_thật,Giá hiện tại,ADX,Xu hướng DI,RSI,Chiết khấu từ đỉnh (%),Điểm sức mạnh,Giá_rescale_x1000
-SSB,39.4,647.4,8.2,,False,True,15450.0,40.2,Giảm,49.1,21.8,31.1,True
-BMP,42.3,34.1,9.8,0.26,False,True,148500.0,12.4,Giảm,48.2,17.8,30.44,True
-AAA,79.2,102.2,8.9,1.03,False,True,7340.0,25.3,Tăng,63.4,14.7,24.79,True
-ACB,16.9,53.7,6.8,,False,True,22750.0,21.9,Giảm,54.4,10.5,24.49,True
-SAB,19.1,25.4,13.4,0.28,False,True,46300.0,18.3,Tăng,61.7,13.3,22.38,True
-TRC,17.1,213.1,5.8,0.19,False,True,83300.0,18.7,Tăng,73.6,0.5,13.73,True
+SSB,39.4,647.4,8.2,,False,True,15200.0,40.2,Giảm,42.5,23.0,35.41,True
+ACB,16.9,53.7,6.8,,False,True,22200.0,22.1,Giảm,45.6,12.7,30.44,True
+BMP,42.3,34.1,9.8,0.26,False,True,149400.0,11.8,Tăng,50.7,17.3,28.96,True
+SAB,19.1,25.4,13.4,0.28,False,True,45850.0,18.4,Tăng,58.3,14.2,24.71,True
+NTP,23.9,27.0,8.9,0.72,False,True,51800.0,15.1,Tăng,67.1,21.1,22.36,True
+TRC,17.1,213.1,5.8,0.19,False,True,82800.0,20.9,Tăng,71.4,1.1,15.67,True
