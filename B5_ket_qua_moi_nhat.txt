@@ -17,8 +17,7 @@
 ┃  🔗 Tham gia ngay: https://vnstocks.com/insiders-program.                       ┃
 ┃                                                                                 ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-❌ Lỗi lấy dữ liệu vĩ mô: RetryError[<Future at 0x7f6b7c5abbd0 state=finished raised UnboundLocalError>]
-⚠️  Không xác thực được trạng thái thị trường -> mặc định RISK-OFF để bảo toàn vốn.
+📊 VN-Index: 1,768.12 | MA200: 1,777.33
 
 🚨 CẢNH BÁO ĐỎ (RISK-OFF): Thị trường gãy vỡ vùng hỗ trợ Dài hạn (MA200),
     hoặc dữ liệu vĩ mô chưa xác thực được.
