@@ -1,2 +1,2 @@
 """File này được GitHub Actions TỰ ĐỘNG ghi đè sau mỗi lần cập nhật dữ liệu."""
-LAST_UPDATE_UTC = "2026-07-30 11:12 UTC"
+LAST_UPDATE_UTC = "2026-09-11 13:19 UTC"
