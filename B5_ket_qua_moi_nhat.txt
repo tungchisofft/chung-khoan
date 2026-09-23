@@ -17,7 +17,7 @@
 ┃  🔗 Tham gia ngay: https://vnstocks.com/insiders-program.                       ┃
 ┃                                                                                 ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-📊 VN-Index: 1,816.93 | MA200: 1,793.88
+📊 VN-Index: 1,801.65 | MA200: 1,794.43
 ℹ️  Lưu ý: tín hiệu 'Trên MA200' chỉ phản ánh xu hướng giá, KHÔNG thay thế việc
     kiểm tra thủ công độ rộng thị trường, thanh khoản và dòng vốn khối ngoại.
 
@@ -25,14 +25,13 @@
 
 📋 NHẬT KÝ LOẠI TRỪ (đối chiếu thủ công, tránh tin mù quáng vào bộ lọc):
   - D/E rỗng (khả năng là ngân hàng - D/E không phù hợp, cần mô hình riêng cho ngành ngân hàng): SSB, ACB
-  - D/E > 0.5 (đòn bẩy cao): HID, AAS, AAA, APH, NTP
+  - D/E > 0.5 (đòn bẩy cao): AAS, AAA, APH, NTP
   - ROE < 15%: GAS
 
 🏆 TOP CỔ PHIẾU VƯỢT QUA KIỂM ĐỊNH RỦI RO (CẦN TỰ THẨM ĐỊNH THÊM TRƯỚC KHI MUA):
 ==================================================================================================================================
 Mã CK Total_Score  P/E  D/E  ROE Năm (%)  Tăng trưởng LNST (%)  RSI  Giá hiện tại  Tỷ_trọng_đề_xuất_%  Cảnh_báo_tăng_trưởng_bất_thường  Cảnh_báo_thanh_khoản(proxy)  Cảnh_báo_growth_QoQ  Cảnh_báo_ROE_x4 Xu hướng DI  Giá_rescale_x1000
-  SAB        80.0 13.4 0.28         19.1                  25.4 48.5       44650.0                50.0                            False                        False                 True            False        Giảm               True
-  TRC        70.0  5.8 0.19         17.1                 213.1 54.2       21400.0                50.0                             True                        False                 True            False        Tăng               True
+  TRC       100.0  5.8 0.19         17.1                 213.1 59.2       22000.0               100.0                             True                        False                 True            False        Tăng               True
 ==================================================================================================================================
 
 💡 HÀNH ĐỘNG CHIẾN LƯỢC:
